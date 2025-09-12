@@ -1,0 +1,372 @@
+Metadata-Version: 2.4
+Name: research-project
+Version: 0.2.0
+Summary: Enhanced PubMed Research Dataset Creation & Analysis Tool with Clinical Keyword Polarity Suite
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: pandas>=2.3.1
+Requires-Dist: spacy>=3.8.7
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: scikit-learn>=1.3.0
+Requires-Dist: matplotlib>=3.7.0
+Requires-Dist: seaborn>=0.12.0
+Requires-Dist: fastapi>=0.111.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: streamlit>=1.48.1
+Requires-Dist: uvicorn>=0.35.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: python-docx>=0.8.11
+Requires-Dist: pytesseract>=0.3.12
+Requires-Dist: pdf2image>=1.16.3
+Requires-Dist: Pillow>=10.2.0
+Requires-Dist: pypdf>=4.0.0
+Requires-Dist: plotly>=5.20.0
+Requires-Dist: nltk>=3.8.1
+Requires-Dist: shap>=0.44.0
+Requires-Dist: lime<=0.2.0.1
+Requires-Dist: python-jose[cryptography]>=3.3.0
+Requires-Dist: passlib>=1.7.4
+Requires-Dist: pytest>=8.2.0
+Requires-Dist: flake8>=7.0.0
+Requires-Dist: mypy>=1.9.0
+Requires-Dist: pre-commit>=3.5.0
+Requires-Dist: en-core-web-sm
+Requires-Dist: en-core-web-md
+Provides-Extra: clinical
+Requires-Dist: medspacy>=0.2.0; extra == "clinical"
+Provides-Extra: analysis
+Requires-Dist: jupyter>=1.0.0; extra == "analysis"
+Requires-Dist: ipywidgets>=8.0.0; extra == "analysis"
+Requires-Dist: wordcloud>=1.9.0; extra == "analysis"
+Requires-Dist: textstat>=0.7.3; extra == "analysis"
+Provides-Extra: dev
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: sphinx>=7.0.0; extra == "dev"
+
+# Enhanced PubMed Research Dataset Creation & Analysis Tool
+
+A comprehensive toolkit for creating high-quality research datasets from PubMed abstracts and performing detailed classification analysis with confusion matrices.
+
+## Features
+
+### 🔍 Enhanced PubMed Search & Dataset Creation
+- **Advanced search strategies** with keyword, MeSH term, and exclusion filters
+- **Predefined research domain strategies** (cardiovascular, oncology, infectious disease, etc.)
+- **Data quality validation** with automated quality checks
+- **Comprehensive metadata extraction** (authors, journals, publication dates, etc.)
+- **Batch processing** with retry logic and rate limiting
+- **Labeled dataset creation** for machine learning applications
+
+### 📊 Advanced Confusion Matrix Analysis
+- **Comprehensive metrics calculation** (accuracy, precision, recall, F1, Cohen's kappa, AUC)
+- **Multi-class performance analysis** with detailed per-class statistics
+- **Misclassification pattern analysis** to identify common error types
+- **Model comparison capabilities** for evaluating multiple classifiers
+- **Rich visualizations** with confusion matrices and performance charts
+- **Error analysis** with text pattern recognition in misclassified instances
+
+### 🖥️ Clinical Keyword Polarity Suite (Legacy)
+- **Streamlit UI** with drag-and-drop document ingestion (TXT/PDF/DOCX/PNG/JPG/ZIP)
+- **FastAPI service** for headless API integration
+- **Interactive dependency tree visualization** with hover tooltips
+- **Active learning hooks** with feedback recording
+
+## Installation
+
+### Prerequisites
+```bash
+# Core dependencies
+pip install requests pandas scikit-learn numpy
+
+# Optional dependencies for enhanced features
+pip install matplotlib seaborn  # For visualizations
+pip install nltk wordnet       # For text analysis
+
+# For the Streamlit UI (legacy)
+pip install streamlit spacy
+```
+
+### Setup
+```bash
+# Install all dependencies
+pip install -e .
+
+# Or install just the enhanced tools
+pip install requests pandas scikit-learn numpy matplotlib
+```
+
+## Quick Start
+
+### 1. Create a PubMed Dataset
+
+#### Basic Usage
+```bash
+# Search by keywords
+python pubmed_fetch.py --keywords "sepsis,pneumonia,infection" --retmax 200
+
+# Search with MeSH terms
+python pubmed_fetch.py --mesh "Sepsis,Pneumonia" --keywords "treatment,therapy" --retmax 300
+
+# Use predefined strategy
+python pubmed_fetch.py --strategy cardiovascular --retmax 250
+```
+
+#### Advanced Usage
+```bash
+# Create labeled dataset with exclusions and date filters
+python pubmed_fetch.py \
+  --keywords "diabetes,insulin resistance" \
+  --mesh "Diabetes Mellitus,Type 2" \
+  --exclude "animal,rat,mouse" \
+  --date-range "2020/01/01:2024/12/31" \
+  --create-labeled \
+  --retmax 500 \
+  --out diabetes_dataset.csv
+```
+
+### 2. Analyze Classification Performance
+
+#### Basic Confusion Matrix
+```bash
+# Basic analysis
+python confusion_matrix.py \
+  --input predictions.csv \
+  --true-col true_label \
+  --pred-col predicted_label
+```
+
+#### Comprehensive Analysis
+```bash
+# Full analysis with visualizations and error analysis
+python confusion_matrix.py \
+  --input predictions.csv \
+  --analyze \
+  --visualize \
+  --error-analysis \
+  --text-col abstract \
+  --output-dir ./analysis_results/ \
+  --save-plots
+```
+
+#### Model Comparison
+```bash
+# Compare multiple models
+python confusion_matrix.py \
+  --input multi_model_results.csv \
+  --compare-models \
+  --model-col model_name \
+  --output-dir ./model_comparison/
+```
+
+### 3. Run Demo
+```bash
+# Interactive demonstration
+python create_dataset_demo.py
+```
+
+### 4. Legacy Streamlit UI
+```bash
+# Run the original clinical keyword polarity tool
+streamlit run app.py
+```
+
+## Available Search Strategies
+
+### Predefined Strategies
+- **`clinical_trials`**: Randomized controlled trials and clinical studies
+- **`cardiovascular`**: Heart disease, myocardial infarction, heart failure
+- **`infectious_disease`**: Sepsis, pneumonia, antibiotic resistance
+- **`oncology`**: Cancer, chemotherapy, immunotherapy
+- **`mental_health`**: Depression, anxiety, PTSD, mental health
+
+### Custom Strategy Example
+```python
+from pubmed_fetch import SearchConfig
+
+config = SearchConfig(
+    keywords=["artificial intelligence", "machine learning", "deep learning"],
+    mesh_terms=["Artificial Intelligence", "Machine Learning"],
+    exclude_terms=["review", "editorial"],
+    date_range=("2023/01/01", "2024/12/31"),
+    journal_filter=["Nature", "Science", "Cell"],
+    study_types=["Clinical Trial"],
+    retmax=300
+)
+```
+
+## Dataset Output Format
+
+### Standard CSV Columns
+- `pmid`: PubMed ID
+- `title`: Article title
+- `abstract`: Full abstract text
+- `journal`: Journal name
+- `publication_date`: Publication date
+- `authors`: Author list (first 5)
+- `mesh_terms`: MeSH terms with qualifiers
+- `publication_types`: Publication type classifications
+- `keywords`: Author-provided keywords
+- `abstract_length`: Character count
+- `word_count`: Word count
+
+### Labeled Dataset (with `--create-labeled`)
+Additional columns:
+- `predicted_label`: Auto-assigned labels based on content
+- `true_label`: Empty field for manual annotation
+- `category_1`, `category_2`, etc.: Multi-label classifications
+
+### Metadata File
+Automatically generated `*_metadata.json` includes:
+- Dataset statistics (size, date range, journal distribution)
+- Quality metrics (average abstract length, completeness)
+- MeSH term distribution
+- Publication type breakdown
+- Quality issue warnings
+
+## Confusion Matrix Analysis Features
+
+### Metrics Calculated
+- **Overall**: Accuracy, Cohen's Kappa, AUC-ROC
+- **Per-class**: Precision, Recall, F1-score, Support
+- **Averages**: Macro, Micro, Weighted averages
+
+### Output Files
+- `classification_report.txt`: Detailed text report
+- `metrics.json`: Machine-readable metrics
+- `confusion_matrix.png`: Visualization plots
+- `misclassified_instances.csv`: Error analysis
+- `error_analysis.json`: Pattern analysis results
+
+### Model Comparison Output
+- `model_comparison.json`: Detailed comparison
+- `model_comparison_summary.csv`: Performance summary table
+
+## API Usage
+
+### Programmatic Dataset Creation
+```python
+from pubmed_fetch import SearchConfig, search_pubmed, fetch_abstracts
+
+# Define search
+config = SearchConfig(
+    keywords=["heart failure", "cardiac"],
+    mesh_terms=["Heart Failure"],
+    retmax=100
+)
+
+# Execute search
+ids = search_pubmed(config)
+records = fetch_abstracts(ids)
+
+# Process results
+import pandas as pd
+df = pd.DataFrame(records)
+print(f"Retrieved {len(df)} articles")
+```
+
+### Programmatic Analysis
+```python
+from confusion_matrix import ConfusionMatrixAnalyzer
+
+# Load your predictions
+import pandas as pd
+df = pd.read_csv("predictions.csv")
+
+# Analyze
+analyzer = ConfusionMatrixAnalyzer(
+    df["true_label"].tolist(),
+    df["predicted_label"].tolist()
+)
+
+# Get metrics
+metrics = analyzer.calculate_metrics()
+print(f"Accuracy: {metrics['accuracy']:.3f}")
+
+# Generate report
+report = analyzer.generate_report()
+print(report)
+```
+
+## Examples
+
+### Research Use Cases
+
+#### 1. Systematic Review Dataset
+```bash
+python pubmed_fetch.py \
+  --strategy clinical_trials \
+  --keywords "COVID-19,coronavirus" \
+  --date-range "2020/01/01:2024/12/31" \
+  --journals "NEJM,Lancet,JAMA" \
+  --retmax 500
+```
+
+#### 2. Machine Learning Training Data
+```bash
+python pubmed_fetch.py \
+  --keywords "cancer,tumor,neoplasm" \
+  --mesh "Neoplasms" \
+  --create-labeled \
+  --exclude "review,editorial,case report" \
+  --retmax 1000 \
+  --out cancer_ml_dataset.csv
+```
+
+#### 3. Multi-Model Performance Comparison
+```bash
+# After running multiple models on your dataset
+python confusion_matrix.py \
+  --input model_results.csv \
+  --compare-models \
+  --model-col algorithm \
+  --visualize \
+  --save-plots \
+  --output-dir ./comparison_results/
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **API Rate Limits**
+   ```
+   Solution: Reduce batch size or add delays
+   --batch-size 25
+   ```
+
+2. **Empty Results**
+   ```
+   Check query syntax and increase retmax
+   python pubmed_fetch.py --keywords "test" --retmax 1000
+   ```
+
+3. **Visualization Errors**
+   ```
+   Install matplotlib: pip install matplotlib
+   ```
+
+4. **Memory Issues with Large Datasets**
+   ```
+   Process in smaller batches or reduce retmax
+   ```
+
+## Contributing
+
+### Adding New Search Strategies
+1. Edit `create_search_strategies()` in `pubmed_fetch.py`
+2. Add strategy configuration
+3. Test with small dataset
+4. Update documentation
+
+### Extending Analysis Features
+1. Add methods to `ConfusionMatrixAnalyzer` class
+2. Update output formats
+3. Add visualization options
+4. Update tests
+
+## License
+
+MIT License - see LICENSE file for details.
