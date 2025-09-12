@@ -1,0 +1,5 @@
+.github
+.pytest_cache
+__pycache_
+_MACOSX
+.venv
