@@ -1,4 +1,0 @@
-[console_scripts]
-confusion-analysis = confusion_matrix:main
-demo-dataset = create_dataset_demo:main
-pubmed-fetch = pubmed_fetch:main

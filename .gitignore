@@ -1,5 +1,22 @@
-.github
-.pytest_cache
-__pycache_
-_MACOSX
-.venv
+# Caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual envs
+.venv/
+.env
+
+# OS cruft
+.DS_Store
+__MACOSX/
+
+# Build/packaging artifacts
+*.egg-info/
+research_project.egg-info/
+
+# Local databases
+*.db
+
+# App-specific: artifacts not meant for source control
+feedback.db

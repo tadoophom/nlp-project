@@ -151,9 +151,21 @@ if st.session_state.current_review_index < len(df):
             
             # Also show plain text version for reference
             with st.expander("Plain text version", expanded=False):
-                st.text_area("", value=sentence_text, height=100, disabled=True)
+                st.text_area(
+                    "Sentence",
+                    value=sentence_text,
+                    height=100,
+                    disabled=True,
+                    label_visibility="collapsed",
+                )
         else:
-            st.text_area("", value=sentence_text, height=150, disabled=True)
+            st.text_area(
+                "Sentence",
+                value=sentence_text,
+                height=150,
+                disabled=True,
+                label_visibility="collapsed",
+            )
         
         st.write("**Keyword Found:**")
         st.write(f"**'{current_item['keyword']}'** at token position {current_item.get('token_index', 'N/A')}")

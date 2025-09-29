@@ -5,7 +5,44 @@ PubMed Searst.title("PubMed Search")h Page - Dedicated page for searching and se
 import streamlit as st
 import pandas as pd
 import re
+import io
+import zipfile
+import tempfile
+from pathlib import Path
 from typing import List, Dict, Any
+
+from corpus_pipeline import load_protein_entries, build_corpus
+
+
+def _entries_to_dataframe(entries) -> pd.DataFrame:
+    """Convert ProteinEntry objects to a DataFrame for preview purposes."""
+    records: List[Dict[str, Any]] = []
+    for entry in entries:
+        if entry.raw_row:
+            records.append(entry.raw_row)
+        else:
+            row: Dict[str, Any] = {"identifier": entry.identifier}
+            if entry.score is not None:
+                row["score"] = entry.score
+            records.append(row)
+    if not records:
+        return pd.DataFrame()
+    return pd.DataFrame(records)
+
+# NLP utilities for abstract sentiment/polarity analysis
+try:
+    from nlp_utils import load_pipeline, extract as nlp_extract, render_dependency_svg, set_custom_negation_triggers
+except Exception:
+    load_pipeline = None
+    nlp_extract = None
+    render_dependency_svg = None
+    set_custom_negation_triggers = None
+
+# Feedback DB (optional)
+try:
+    from database import insert_feedback
+except Exception:
+    insert_feedback = None
 
 # Import PubMed functions
 try:
@@ -128,7 +165,76 @@ with st.sidebar:
             index=0,
             help="OR finds articles with ANY of your terms, AND finds articles with ALL terms"
         )
+
+        # Optional: direct PubMed query to mix AND/OR in one expression
+        use_raw_query = st.checkbox(
+            "Use custom PubMed boolean query",
+            value=False,
+            help="Write an advanced PubMed query; overrides the above logic."
+        )
+        raw_query = ""
+        if use_raw_query:
+            raw_query = st.text_area(
+                "Custom query",
+                placeholder=(
+                    "Example: (procalcitonin[Title/Abstract] AND sepsis[Title/Abstract]) "
+                    "OR \"Anti-Bacterial Agents\"[MeSH Terms]"
+                ),
+                height=80,
+            )
         
+        # Boolean Builder – compose an advanced AND/OR query without writing syntax
+        st.subheader("Boolean Builder (no syntax needed)")
+        builder_enabled = st.checkbox(
+            "Build an advanced query for me",
+            value=False,
+            help="Describe your terms; we compose a PubMed query using AND/OR and field tags."
+        )
+        builder_raw_query = ""
+        if builder_enabled:
+            group_count = st.number_input("Number of groups", min_value=1, max_value=3, value=2, step=1)
+            groups = []
+            for i in range(int(group_count)):
+                st.markdown(f"**Group {i+1}**")
+                terms_str = st.text_input(
+                    f"Group {i+1} terms (comma-separated)",
+                    key=f"builder_terms_{i}",
+                    placeholder="e.g., procalcitonin, PCT"
+                )
+                field = st.selectbox(
+                    f"Field for Group {i+1}",
+                    ["Keywords", "MeSH Terms"],
+                    key=f"builder_field_{i}",
+                    help="Keywords searches Title/Abstract in PubMed"
+                )
+                within_logic = st.radio(
+                    f"Within-group logic (Group {i+1})",
+                    ["OR", "AND"],
+                    horizontal=True,
+                    key=f"builder_within_{i}"
+                )
+                terms = [t.strip() for t in terms_str.split(",") if t.strip()]
+                if terms:
+                    suffix = "[Title/Abstract]" if field == "Keywords" else "[MeSH Terms]"
+                    # Build group query
+                    group_terms = [f"{t}{suffix}" for t in terms]
+                    group_query = "(" + f" {within_logic} ".join(group_terms) + ")"
+                    groups.append(group_query)
+                # Joiners between groups
+                if i < int(group_count) - 1:
+                    joiner = st.selectbox(
+                        f"Join Group {i+1} with Group {i+2} using",
+                        ["AND", "OR"],
+                        key=f"builder_joiner_{i}"
+                    )
+                    groups.append(joiner)
+            # Compose final raw query
+            # groups list alternates: group_query, joiner, group_query, ...
+            builder_raw_query = " ".join(groups).strip()
+            if builder_raw_query:
+                with st.expander("Composed Query Preview", expanded=False):
+                    st.code(builder_raw_query)
+
         st.subheader("Publication Date Filters")
         col1, col2 = st.columns(2)
         with col1:
@@ -232,6 +338,14 @@ with st.sidebar:
                                    help="Attempts to retrieve full text from PMC and open access sources")
     with col3:
         st.write("")  # Spacer
+
+    # Analysis model selection for sentiment step
+    analysis_model = st.selectbox(
+        "Analysis model",
+        options=["en_core_web_sm", "en_core_web_md"],
+        index=0,
+        help="spaCy model used for abstract analysis and dependency trees"
+    )
     
     search_button = st.button("Search PubMed", type="primary")
 
@@ -242,16 +356,39 @@ with col1:
     if search_button:
         if not search_pubmed or not fetch_abstracts:
             st.error("PubMed functionality not available. Please check pubmed_fetch module.")
-        elif (not pubmed_keywords.strip() and not pubmed_mesh.strip()) or \
-             (search_logic == "Keywords only" and not pubmed_keywords.strip()) or \
-             (search_logic == "MeSH terms only" and not pubmed_mesh.strip()):
-            if search_logic == "Keywords only":
-                st.error("Please enter keywords for keywords-only search.")
-            elif search_logic == "MeSH terms only":
-                st.error("Please enter MeSH terms for MeSH-only search.")
-            else:
-                st.error("Please enter at least one of: Keywords OR MeSH terms (or both for best results).")
         else:
+            # Allow Boolean Builder or custom raw query to satisfy input requirements
+            has_builder_query = 'builder_enabled' in locals() and builder_enabled and bool(builder_raw_query)
+            has_raw_query = 'use_raw_query' in locals() and use_raw_query and bool(raw_query.strip())
+            has_basic_terms = bool(pubmed_keywords.strip()) or bool(pubmed_mesh.strip())
+
+            keywords_only_block = (
+                search_logic == "Keywords only" and
+                not pubmed_keywords.strip() and
+                not has_builder_query and
+                not has_raw_query
+            )
+            mesh_only_block = (
+                search_logic == "MeSH terms only" and
+                not pubmed_mesh.strip() and
+                not has_builder_query and
+                not has_raw_query
+            )
+            no_terms_block = (
+                not has_basic_terms and
+                not has_builder_query and
+                not has_raw_query
+            )
+
+            if keywords_only_block:
+                st.error("Please enter keywords for keywords-only search, or use the Boolean Builder/custom query.")
+                st.stop()
+            if mesh_only_block:
+                st.error("Please enter MeSH terms for MeSH-only search, or use the Boolean Builder/custom query.")
+                st.stop()
+            if no_terms_block:
+                st.error("Provide Keywords, MeSH terms, or use the Boolean Builder/custom query.")
+                st.stop()
             with st.spinner("Searching PubMed..."):
                 try:
                     # Prepare search parameters
@@ -276,7 +413,9 @@ with col1:
                         exclude_mesh.strip() or 
                         article_types or 
                         language_filter != "Any language" or 
-                        search_logic != "OR (broader search - default)"
+                        search_logic != "OR (broader search - default)" or
+                        ("raw_query" in locals() and use_raw_query and raw_query.strip()) or
+                        ("builder_raw_query" in locals() and builder_enabled and builder_raw_query)
                     )
                     
                     if use_advanced and search_pubmed_advanced:
@@ -289,7 +428,11 @@ with col1:
                             exclude_keywords=exclude_kw_list,
                             exclude_mesh=exclude_mesh_list,
                             article_types=article_types,
-                            language=language_filter
+                            language=language_filter,
+                            raw_query=(
+                                builder_raw_query if ("builder_raw_query" in locals() and builder_enabled and builder_raw_query)
+                                else (raw_query if ("raw_query" in locals() and use_raw_query and raw_query.strip()) else None)
+                            ),
                         )
                         # Show the actual query used
                         with st.expander("Actual PubMed Query Used", expanded=False):
@@ -422,7 +565,245 @@ with col1:
                             highlighted_preview = highlight_terms_in_text(preview_text, search_keywords, search_mesh_terms)
                             st.markdown(highlighted_preview, unsafe_allow_html=True)
         
-        # Download all results
+        # Batch sentiment analysis over abstracts
+        st.divider()
+        st.subheader("Batch Sentiment Analysis (Abstracts)")
+        st.caption("Analyze each abstract with your keyword list and export.")
+
+        analysis_kw_default = (
+            ", ".join(st.session_state.get("search_keywords", []))
+            if st.session_state.get("search_keywords") else ""
+        )
+        analysis_keywords_raw = st.text_input(
+            "Analysis keywords (comma-separated)",
+            value=analysis_kw_default,
+            placeholder="e.g., procalcitonin, sepsis, antibiotic therapy"
+        )
+        analysis_keywords = [k.strip().lower() for k in analysis_keywords_raw.split(",") if k.strip()]
+
+        ca1, ca2, ca3 = st.columns(3)
+        with ca1:
+            run_analysis = st.button("Run Analysis on All Results")
+        with ca2:
+            run_and_export = st.button("Analyze + Download CSV")
+        with ca3:
+            run_selected = st.button("Analyze Selected Only")
+
+        def _summarize_hits(hits: List[Dict[str, Any]]) -> Dict[str, Any]:
+            per_kw: Dict[str, Dict[str, int]] = {}
+            for h in hits:
+                kw = h.get("keyword")
+                cls = h.get("classification", "Neutral")
+                if not kw:
+                    continue
+                per_kw.setdefault(kw, {"Positive": 0, "Negative": 0, "Neutral": 0})
+                if cls in per_kw[kw]:
+                    per_kw[kw][cls] += 1
+                else:
+                    per_kw[kw]["Neutral"] += 1
+
+            parts: List[str] = []
+            kw_labels: Dict[str, str] = {}
+            for kw, counts in per_kw.items():
+                label = (
+                    "Negative" if counts.get("Negative", 0) > 0 else
+                    "Positive" if counts.get("Positive", 0) > 0 else
+                    "Neutral"
+                )
+                kw_labels[kw] = label
+                parts.append(
+                    f"{kw}: {label} (P{counts.get('Positive',0)}/N{counts.get('Negative',0)}/U{counts.get('Neutral',0)})"
+                )
+
+            totals = {"Positive": 0, "Negative": 0, "Neutral": 0}
+            for lbl in kw_labels.values():
+                totals[lbl] += 1
+            overall = max(totals, key=totals.get) if sum(totals.values()) else "Neutral"
+
+            return {
+                "sentiment_per_keyword": kw_labels,
+                "sentiment_counts": totals,
+                "sentiment_overall": overall,
+                "sentiment_summary": "; ".join(parts),
+            }
+
+        if (run_analysis or run_and_export or run_selected):
+            if not analysis_keywords:
+                st.error("Please provide analysis keywords.")
+            elif not load_pipeline or not nlp_extract:
+                st.error("NLP utilities not available; cannot run analysis.")
+            else:
+                with st.spinner("Analyzing abstracts…"):
+                    nlp = load_pipeline(analysis_model, gpu=False)
+                    # Sync custom negation triggers from main app if available
+                    if set_custom_negation_triggers is not None:
+                        trig = st.session_state.get("custom_neg_triggers", None)
+                        if trig:
+                            set_custom_negation_triggers(trig)
+                    # Choose source: selected articles or all results
+                    source_rows = (
+                        st.session_state.selected_pubmed_articles
+                        if run_selected and st.session_state.get("selected_pubmed_articles")
+                        else st.session_state.pubmed_search_results
+                    )
+                    enriched_rows = []
+                    for row in source_rows:
+                        abs_text = row.get("abstract", "") or ""
+                        hits = nlp_extract(abs_text, analysis_keywords, nlp)
+                        summary = _summarize_hits(hits)
+                        new_row = dict(row)
+                        new_row.update(summary)
+                        new_row["analysis_keywords"] = ", ".join(analysis_keywords)
+                        new_row["hits"] = hits  # persist per-article details
+                        enriched_rows.append(new_row)
+
+                df_preview = pd.DataFrame(enriched_rows)
+                st.dataframe(df_preview[[
+                    c for c in ["pmid", "title", "year", "journal", "analysis_keywords", "sentiment_overall", "sentiment_summary"]
+                    if c in df_preview.columns
+                ]], use_container_width=True)
+
+                st.session_state.pubmed_search_results = enriched_rows
+
+                if run_and_export:
+                    csv = df_preview.to_csv(index=False)
+                    st.download_button(
+                        label="Download CSV (with sentiment)",
+                        data=csv,
+                        file_name="pubmed_search_results_with_sentiment.csv",
+                        mime="text/csv",
+                    )
+
+                # Detailed per-article view mirroring the main analysis
+                st.divider()
+                st.subheader("Per-Article Analysis Details")
+                st.caption("Inspect hits, sentences, and labels for each abstract.")
+
+                COLOUR = {"Positive": "#e6ffed", "Negative": "#ffeef0", "Neutral": "#fff8e1"}
+                # Reuse keyword colors from main app if available
+                kw_colors = st.session_state.get("_kw_colors", {})
+
+                for i, art in enumerate(enriched_rows, 1):
+                    with st.expander(f"{i}. {art.get('title','No title')} — {art.get('sentiment_overall','Neutral')} ", expanded=False):
+                        st.write(f"PMID: {art.get('pmid','N/A')} | Year: {art.get('year','N/A')} | Journal: {art.get('journal','N/A')}")
+                        if art.get("sentiment_summary"):
+                            st.write(f"Summary: {art['sentiment_summary']}")
+                        hits = art.get("hits", [])
+                        if hits:
+                            df_hits = pd.DataFrame(hits)
+                            # Keep a consistent column order if available
+                            cols = [c for c in ["keyword","classification","sentence","pos","dep","sent_index","token_index"] if c in df_hits.columns]
+                            st.dataframe(df_hits[cols] if cols else df_hits, use_container_width=True, height=240)
+
+                            # Sentence view with classification highlighting
+                            with st.expander("Sentence View (colored by classification)", expanded=False):
+                                # Legend
+                                st.markdown(
+                                    "<div>"
+                                    "<span style='background:#e6ffed;padding:2px 6px;border-radius:4px;margin-right:6px;'>Positive</span>"
+                                    "<span style='background:#ffeef0;padding:2px 6px;border-radius:4px;margin-right:6px;'>Negative</span>"
+                                    "<span style='background:#fff8e1;padding:2px 6px;border-radius:4px;'>Neutral</span>"
+                                    "</div>",
+                                    unsafe_allow_html=True,
+                                )
+                                for idx_h, h in enumerate(hits):
+                                    sent = h.get("sentence", "")
+                                    kw = h.get("keyword", "")
+                                    cls = h.get("classification", "Neutral")
+                                    color = COLOUR.get(cls, "#fff")
+                                    # Highlight keyword within sentence (case-insensitive)
+                                    if kw:
+                                        try:
+                                            pattern = re.compile(re.escape(kw), flags=re.I)
+                                            highlighted = pattern.sub(lambda m: f"<mark style='background:#fff59d;padding:0 2px;border-radius:2px;'>{m.group(0)}</mark>", sent)
+                                        except Exception:
+                                            highlighted = sent
+                                    else:
+                                        highlighted = sent
+                                    edge = kw_colors.get(kw, "#ddd") if isinstance(kw_colors, dict) else "#ddd"
+                                    html = (
+                                        f"<div style='background:{color};padding:8px;border-radius:6px;margin:6px 0;"
+                                        f"border-left: 6px solid {edge};'>"
+                                        f"<b style='color:{edge}'>{kw}</b> — <i>{cls}</i><br/>{highlighted}"
+                                        f"</div>"
+                                    )
+                                    st.markdown(html, unsafe_allow_html=True)
+
+                                    # Feedback buttons per hit (if DB available)
+                                    if insert_feedback is not None:
+                                        c1, c2 = st.columns(2)
+                                        if c1.button("👍 Correct", key=f"hit_ok_{i}_{idx_h}"):
+                                            insert_feedback(keyword=kw, sentence=sent, classification=cls, correct_label=True)
+                                            st.success("Feedback recorded as correct")
+                                        if c2.button("👎 Incorrect", key=f"hit_bad_{i}_{idx_h}"):
+                                            insert_feedback(keyword=kw, sentence=sent, classification=cls, correct_label=False)
+                                            st.success("Feedback recorded as incorrect")
+
+                            # Optional dependency trees for first N unique sentences
+                            show_trees = st.checkbox("Show dependency trees (first N sentences)", key=f"trees_{i}")
+                            if show_trees and render_dependency_svg is not None:
+                                max_trees = st.number_input("Max trees per article", min_value=1, max_value=10, value=3, step=1, key=f"max_trees_{i}")
+                                rendered = set()
+                                count = 0
+                                for h in hits:
+                                    s = h.get("sentence", "")
+                                    if not s or s in rendered:
+                                        continue
+                                    rendered.add(s)
+                                    svg = render_dependency_svg(s, nlp)
+                                    st.components.v1.html(svg, height=280, scrolling=False)
+                                    count += 1
+                                    if count >= int(max_trees):
+                                        break
+                        else:
+                            st.info("No keyword hits found in this abstract with the provided analysis keywords.")
+
+                # Download all hit-level rows across articles
+                def _flatten_hits(rows: List[Dict[str, Any]]) -> pd.DataFrame:
+                    flat: List[Dict[str, Any]] = []
+                    for r in rows:
+                        meta = {k: r.get(k) for k in ["pmid", "title", "year", "journal"]}
+                        for h in r.get("hits", []) or []:
+                            rec = dict(meta)
+                            rec.update({
+                                "keyword": h.get("keyword"),
+                                "classification": h.get("classification"),
+                                "sentence": h.get("sentence"),
+                                "pos": h.get("pos"),
+                                "dep": h.get("dep"),
+                                "sent_index": h.get("sent_index"),
+                                "token_index": h.get("token_index"),
+                            })
+                            flat.append(rec)
+                    return pd.DataFrame(flat)
+
+                flat_df = _flatten_hits(enriched_rows)
+                if not flat_df.empty:
+                    csv_hits = flat_df.to_csv(index=False)
+                    st.download_button(
+                        label="Download Hit-Level Analysis CSV",
+                        data=csv_hits,
+                        file_name="pubmed_hit_level_analysis.csv",
+                        mime="text/csv",
+                    )
+
+                # Download Everything ZIP (preview + hit-level)
+                df_enriched = pd.DataFrame(enriched_rows)
+                csv_overview = df_enriched.to_csv(index=False).encode("utf-8")
+                csv_hits_bytes = (flat_df.to_csv(index=False).encode("utf-8") if not flat_df.empty else b"")
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    zf.writestr("pubmed_overview.csv", csv_overview)
+                    if csv_hits_bytes:
+                        zf.writestr("pubmed_hit_level_analysis.csv", csv_hits_bytes)
+                st.download_button(
+                    label="Download Everything (ZIP)",
+                    data=buf.getvalue(),
+                    file_name="pubmed_analysis_bundle.zip",
+                    mime="application/zip",
+                )
+
+        # Download all results (plain)
         if st.button("Download All Results as CSV"):
             csv = df.to_csv(index=False)
             st.download_button(
@@ -637,3 +1018,275 @@ with st.expander("How to use this page", expanded=False):
     - Exclude: `pediatric, children`
     - Type: `Clinical Trial, Meta-Analysis`
     """)
+
+st.divider()
+st.header("Disease–Protein Relation Corpus")
+st.write(
+    "Combine PubMed retrieval with the built-in polarity model to spot positive, negative, or "
+    "neutral co-mentions between a disease concept and a protein panel. Upload your own panel or "
+    "try the bundled HFpEF sample to generate an annotated corpus directly inside the app."
+)
+st.caption(
+    "Tip: If your list uses UniProt accessions (e.g. P51606), the tool will auto-expand them to "
+    "gene symbols and preferred names via the UniProt API before querying PubMed."
+)
+
+col_upload, col_sample = st.columns([3, 1])
+with col_upload:
+    uploaded_file = st.file_uploader(
+        "Protein table (CSV or XLSX)",
+        type=["csv", "xlsx"],
+        key="relation_protein_file",
+        help="Provide a spreadsheet with at least one column of protein identifiers.",
+    )
+with col_sample:
+    use_sample = st.checkbox(
+        "Use HFpEF sample",
+        value=False,
+        help="Loads the repository sample_aktan.xlsx protein list",
+    )
+
+protein_preview = None
+protein_source_path: Path | None = None
+uploaded_bytes: bytes | None = None
+uploaded_suffix = ""
+
+if use_sample:
+    sample_path = Path("sample_aktan.xlsx")
+    if sample_path.exists():
+        protein_source_path = sample_path
+        try:
+            protein_preview = pd.read_excel(sample_path)
+        except Exception:
+            try:
+                entries_preview = load_protein_entries(sample_path)
+            except Exception as exc:  # pragma: no cover - interactive warning only
+                st.error(f"Unable to read sample_aktan.xlsx: {exc}")
+            else:
+                protein_preview = _entries_to_dataframe(entries_preview)
+    else:
+        st.error("sample_aktan.xlsx not found in the project directory.")
+elif uploaded_file is not None:
+    uploaded_bytes = uploaded_file.getvalue()
+    uploaded_suffix = Path(uploaded_file.name).suffix.lower() or ".csv"
+    st.session_state["relation_uploaded_bytes"] = uploaded_bytes
+    st.session_state["relation_uploaded_suffix"] = uploaded_suffix
+    tmp_preview_path: Path | None = None
+    try:
+        buffer = io.BytesIO(uploaded_bytes)
+        if uploaded_suffix == ".csv":
+            protein_preview = pd.read_csv(buffer)
+        else:
+            protein_preview = pd.read_excel(buffer)
+    except Exception:
+        try:
+            tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=uploaded_suffix)
+            tmp_file.write(uploaded_bytes)
+            tmp_file.flush()
+            tmp_file.close()
+            tmp_preview_path = Path(tmp_file.name)
+            entries_preview = load_protein_entries(tmp_preview_path)
+        except Exception as exc:  # pragma: no cover - interactive warning only
+            st.error(f"Could not parse uploaded file: {exc}")
+        else:
+            protein_preview = _entries_to_dataframe(entries_preview)
+    finally:
+        if tmp_preview_path and tmp_preview_path.exists():
+            tmp_preview_path.unlink(missing_ok=True)
+else:
+    st.info("Upload a protein table or enable the sample to build the relation corpus.")
+
+if protein_preview is not None and not protein_preview.empty:
+    st.caption("Preview (first five rows)")
+    st.dataframe(protein_preview.head())
+
+    preview_columns = [str(col) for col in protein_preview.columns]
+    lower_columns = [col.lower() for col in preview_columns]
+
+    if not preview_columns:
+        st.warning("No columns detected in the protein table.")
+    else:
+        try:
+            identifier_index = lower_columns.index("protein")
+        except ValueError:
+            identifier_index = 0
+        identifier_column = st.selectbox(
+            "Protein identifier column",
+            preview_columns,
+            index=identifier_index,
+            help="Column containing the protein or biomarker identifier that will be queried in PubMed.",
+        )
+
+        score_options = ["(none)"] + preview_columns
+        default_score_index = 0
+        if "hfpef" in lower_columns:
+            default_score_index = lower_columns.index("hfpef") + 1
+        score_selection = st.selectbox(
+            "Score/weight column (optional)",
+            score_options,
+            index=default_score_index,
+            help="Use to prioritise proteins by score; enables top-N and score threshold filters.",
+        )
+        if score_selection == "(none)":
+            score_column = None
+        else:
+            score_column = score_selection
+
+        col_filters = st.columns(2)
+        with col_filters[0]:
+            if score_column:
+                top_n = st.number_input(
+                    "Limit to top N proteins",
+                    min_value=1,
+                    value=25,
+                    step=1,
+                    help="Sorts by the selected score column before taking the first N proteins.",
+                )
+            else:
+                top_n = None
+        with col_filters[1]:
+            if score_column:
+                min_score = st.number_input(
+                    "Minimum score",
+                    value=0.0,
+                    step=0.01,
+                    help="Discard proteins below this score before querying PubMed.",
+                )
+            else:
+                min_score = None
+
+        st.subheader("PubMed query configuration")
+        default_disease_terms = "HFpEF, Heart Failure with Preserved Ejection Fraction" if use_sample else ""
+        disease_keywords_input = st.text_input(
+            "Disease keywords (comma separated)",
+            value=default_disease_terms,
+            help="Used in the Title/Abstract field for each protein query.",
+        )
+        disease_mesh_input = st.text_input(
+            "Disease MeSH terms (optional)",
+            value="Heart Failure, Diastolic" if use_sample else "",
+            help="Repeatable MeSH descriptors for the disease concept.",
+        )
+        extra_keywords_input = st.text_input(
+            "Additional keywords (optional)",
+            placeholder="e.g., biomarker, plasma",
+        )
+        extra_mesh_input = st.text_input(
+            "Additional MeSH terms (optional)",
+            placeholder="e.g., Biomarkers, Blood Proteins",
+        )
+
+        logic_label = st.selectbox(
+            "Boolean logic",
+            [
+                "Disease AND protein (recommended)",
+                "All groups AND",
+                "Any group OR",
+                "Disease OR protein",
+            ],
+            index=0,
+        )
+        logic_map = {
+            "Disease AND protein (recommended)": "disease_and_protein",
+            "All groups AND": "all_and",
+            "Any group OR": "all_or",
+            "Disease OR protein": "disease_or_protein",
+        }
+        logic_value = logic_map[logic_label]
+
+        retmax = st.number_input(
+            "PubMed results per protein",
+            min_value=5,
+            max_value=200,
+            step=5,
+            value=50,
+            help="Upper limit of PubMed abstracts to fetch for each protein.",
+        )
+
+        spacy_model = st.selectbox(
+            "spaCy model for sentiment",
+            ["en_core_web_sm", "en_core_web_md"],
+            index=0,
+            help="Model used to detect polarity cues in the retrieved abstracts.",
+        )
+
+        run_button = st.button("Build relation corpus", type="primary")
+
+        disease_keywords = [term.strip() for term in disease_keywords_input.split(",") if term.strip()]
+        disease_mesh = [term.strip() for term in disease_mesh_input.split(",") if term.strip()]
+        extra_keywords = [term.strip() for term in extra_keywords_input.split(",") if term.strip()]
+        extra_mesh = [term.strip() for term in extra_mesh_input.split(",") if term.strip()]
+
+        if run_button:
+            if not disease_keywords:
+                st.error("Add at least one disease keyword before building the corpus.")
+            else:
+                path_for_loader: Path | None = None
+                tmp_path: Path | None = None
+                try:
+                    if use_sample and protein_source_path is not None:
+                        path_for_loader = protein_source_path
+                    else:
+                        bytes_payload = st.session_state.get("relation_uploaded_bytes")
+                        suffix = st.session_state.get("relation_uploaded_suffix", ".csv")
+                        if not bytes_payload:
+                            st.error("Upload a protein table to continue.")
+                            raise RuntimeError("Missing uploaded protein bytes")
+                        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                        tmp_file.write(bytes_payload)
+                        tmp_file.flush()
+                        tmp_file.close()
+                        tmp_path = Path(tmp_file.name)
+                        path_for_loader = tmp_path
+
+                    with st.spinner("Loading protein panel..."):
+                        proteins = load_protein_entries(
+                            Path(path_for_loader),
+                            identifier_column=identifier_column,
+                            score_column=score_column,
+                            top_n=int(top_n) if (score_column and top_n) else None,
+                            min_score=float(min_score) if (score_column and min_score is not None) else None,
+                        )
+
+                    if not proteins:
+                        st.warning("No proteins available after applying filters.")
+                    else:
+                        with st.spinner("Querying PubMed and classifying relations..."):
+                            rows = build_corpus(
+                                protein_entries=proteins,
+                                disease_keywords=disease_keywords,
+                                disease_mesh=disease_mesh,
+                                additional_keywords=extra_keywords,
+                                additional_mesh=extra_mesh,
+                                logic=logic_value,
+                                spaCy_model=spacy_model,
+                                retmax=int(retmax),
+                            )
+
+                        if not rows:
+                            st.warning(
+                                "No co-mentions detected. Try expanding the keyword list or increasing the PubMed limit."
+                            )
+                        else:
+                            result_df = pd.DataFrame(rows)
+                            st.session_state["relation_results_df"] = result_df
+                            st.success(
+                                f"Captured {len(result_df)} article rows across {len(proteins)} protein(s)."
+                            )
+                except Exception as exc:  # pragma: no cover - interactive warning only
+                    st.error(f"Failed to build corpus: {exc}")
+                finally:
+                    if tmp_path and tmp_path.exists():
+                        tmp_path.unlink(missing_ok=True)
+
+results_df = st.session_state.get("relation_results_df")
+if results_df is not None and not results_df.empty:
+    st.subheader("Relation corpus preview")
+    st.dataframe(results_df)
+    csv_export = results_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Download relation corpus",
+        csv_export,
+        "relation_corpus.csv",
+        mime="text/csv",
+    )

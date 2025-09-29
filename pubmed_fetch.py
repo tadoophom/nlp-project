@@ -117,52 +117,62 @@ def search_pubmed(keywords: List[str], mesh_terms: List[str], retmax: int = 100)
 
 
 def search_pubmed_advanced(
-    keywords: List[str], 
-    mesh_terms: List[str], 
+    keywords: List[str],
+    mesh_terms: List[str],
     retmax: int = 100,
     search_logic: str = "OR",
     date_query: str = "",
-    exclude_keywords: List[str] = None,
-    exclude_mesh: List[str] = None,
-    article_types: List[str] = None,
-    language: str = ""
+    exclude_keywords: List[str] | None = None,
+    exclude_mesh: List[str] | None = None,
+    article_types: List[str] | None = None,
+    language: str = "",
+    raw_query: str | None = None,
 ):
     """
-    Advanced PubMed search with boolean logic, date filters, and exclusions.
+    Advanced PubMed search with boolean logic, date filters, exclusions, and
+    support for a raw PubMed query string.
     
     Args:
         keywords: List of keywords to search in title/abstract
         mesh_terms: List of MeSH terms
         retmax: Maximum number of results
-        search_logic: "OR", "AND", "keywords_only", "mesh_only"
+        search_logic: "OR", "AND", "keywords_only", "mesh_only" (ignored when raw_query provided)
         date_query: Date filter string (e.g., "2020[PDAT]" or "2020:2023[PDAT]")
         exclude_keywords: Keywords to exclude
         exclude_mesh: MeSH terms to exclude
         article_types: Publication types to filter by
         language: Language filter
+        raw_query: Full PubMed query string. If provided, overrides composed
+            keyword/MeSH logic and is wrapped with additional filters.
     """
-    query_parts = []
-    
-    # Main search terms with logic
+    query_parts: List[str] = []
+
+    # Main search terms with logic, unless a raw query is provided
     main_query = ""
-    if search_logic == "keywords_only" and keywords:
-        main_query = " OR ".join([f'{kw}[Title/Abstract]' for kw in keywords])
-    elif search_logic == "mesh_only" and mesh_terms:
-        main_query = " OR ".join([f'{mt}[MeSH Terms]' for mt in mesh_terms])
-    elif search_logic == "AND" and keywords and mesh_terms:
-        kw_part = "(" + " OR ".join([f'{kw}[Title/Abstract]' for kw in keywords]) + ")"
-        mesh_part = "(" + " OR ".join([f'{mt}[MeSH Terms]' for mt in mesh_terms]) + ")"
-        main_query = f"{kw_part} AND {mesh_part}"
-    else:  # OR logic (default)
-        if keywords:
-            main_query += " OR ".join([f'{kw}[Title/Abstract]' for kw in keywords])
-        if mesh_terms:
-            if main_query:
-                main_query += " OR "
-            main_query += " OR ".join([f'{mt}[MeSH Terms]' for mt in mesh_terms])
-    
+    if raw_query and raw_query.strip():
+        # Trust caller to provide valid PubMed syntax; just wrap in parentheses
+        main_query = raw_query.strip()
+    else:
+        if search_logic == "keywords_only" and keywords:
+            main_query = " OR ".join([f"{kw}[Title/Abstract]" for kw in keywords])
+        elif search_logic == "mesh_only" and mesh_terms:
+            main_query = " OR ".join([f"{mt}[MeSH Terms]" for mt in mesh_terms])
+        elif search_logic == "AND" and keywords and mesh_terms:
+            kw_part = "(" + " OR ".join([f"{kw}[Title/Abstract]" for kw in keywords]) + ")"
+            mesh_part = "(" + " OR ".join([f"{mt}[MeSH Terms]" for mt in mesh_terms]) + ")"
+            main_query = f"{kw_part} AND {mesh_part}"
+        else:  # OR logic (default)
+            if keywords:
+                main_query += " OR ".join([f"{kw}[Title/Abstract]" for kw in keywords])
+            if mesh_terms:
+                if main_query:
+                    main_query += " OR "
+                main_query += " OR ".join([f"{mt}[MeSH Terms]" for mt in mesh_terms])
+
     if main_query:
-        query_parts.append(f"({main_query})")
+        # Avoid double-wrapping if the caller already included parentheses at outer level
+        mp = main_query.strip()
+        query_parts.append(mp if (mp.startswith("(") and mp.endswith(")")) else f"({mp})")
     
     # Date filter
     if date_query:
@@ -187,7 +197,7 @@ def search_pubmed_advanced(
         query_parts.append(f"{language.lower()}[LA]")
     
     # Exclusions
-    exclude_parts = []
+    exclude_parts: List[str] = []
     if exclude_keywords:
         exclude_parts.extend([f'{kw}[Title/Abstract]' for kw in exclude_keywords])
     if exclude_mesh:

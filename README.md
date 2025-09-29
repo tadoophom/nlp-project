@@ -75,6 +75,55 @@ You can use the PubMed API to search for abstracts using clinical keywords and/o
 
 2. Use this CSV as input for your NLP pipeline or manual annotation.
 
+
+
+Disease–Protein Corpus Builder
+------------------------------
+
+For workflows that require sentiment-aware relationships between a disease and
+candidate biomarkers (e.g. proteins), use `corpus_pipeline.py`. It combines
+PubMed querying (keywords + MeSH) with the existing polarity classifier so that
+each abstract is labelled as a positive, negative or neutral co-mention.
+
+**Example (HFpEF vs. protein panel):**
+
+```bash
+python3 corpus_pipeline.py \
+  --protein-file sample_aktan.xlsx \
+  --identifier-column protein \
+  --score-column HFpEF \
+  --top-n 50 \
+  --disease-keyword HFpEF \
+  --disease-keyword "Heart Failure with Preserved Ejection Fraction" \
+  --extra-mesh "Heart Failure, Diastolic" \
+  --logic disease_and_protein \
+  --retmax 75 \
+  --output data/hfpef_corpus.csv
+```
+
+Key options:
+
+* `--disease-keyword` / `--disease-mesh` – repeatable switches to define the
+  disease concept across PubMed fields.
+* `--extra-keyword` / `--extra-mesh` – optional filters applied to every query
+  (e.g. study design terms or comorbidities).
+* `--logic` – choose how disease/protein/extra groups are combined. Supported
+  values: `disease_and_protein`, `all_and`, `all_or`, `disease_or_protein`.
+* `--protein-file` – accepts CSV or XLSX. When a score column exists you can
+  restrict with `--top-n` and/or `--min-score`.
+
+The resulting CSV contains one row per (protein, article) pair with PubMed
+metadata, the exact query, and polarity evidence so you can audit candidate
+relationships quickly or feed them into downstream analytics. When the protein
+column contains UniProt accessions (e.g. `P51606`), the pipeline automatically
+looks up gene symbols and preferred names via the UniProt REST API so the
+queries and sentiment checks still hit the literature. (If the lookup fails, it
+falls back to the raw identifier.)
+
+Prefer working in the dashboard? Open the **PubMed Search** page in Streamlit
+and scroll to the **Disease–Protein Relation Corpus** section to run the same
+workflow without leaving the UI.
+
 Confusion Matrix for Manual Validation
 -------------------------------------
 

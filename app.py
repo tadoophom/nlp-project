@@ -317,7 +317,9 @@ with st.sidebar:
         # Custom rules
         st.subheader("Custom Rules")
         custom_neg = st.text_area("Negation triggers (comma)", placeholder="no, denies, without", height=60)
-        set_custom_negation_triggers([t.strip() for t in custom_neg.split(",") if t.strip()])
+        _trigs = [t.strip() for t in custom_neg.split(",") if t.strip()]
+        st.session_state["custom_neg_triggers"] = _trigs
+        set_custom_negation_triggers(_trigs)
 
     # Theme toggle
     st.header("Appearance")
@@ -392,7 +394,13 @@ if "preset_text_loaded" not in st.session_state:
 def get_text() -> str:
     # Show empty text area by default, unless PubMed articles are available
     if not st.session_state.get("pubmed_export_text"):
-        return st.text_area("", st.session_state.preset_text_loaded, height=200, placeholder="Paste your text here, load preset text, or import from PubMed search...")
+        return st.text_area(
+            "Document text",
+            st.session_state.preset_text_loaded,
+            height=200,
+            placeholder="Paste your text here, load preset text, or import from PubMed search...",
+            label_visibility="collapsed",
+        )
     else:
         return ""  # Empty string when PubMed articles are available
 
@@ -521,7 +529,9 @@ with st.expander("Advanced Keyword Options", expanded=False):
         height=60,
         help="Add custom words that indicate negation in medical text"
     )
-    set_custom_negation_triggers([t.strip() for t in custom_neg.split(",") if t.strip()])
+    _trigs2 = [t.strip() for t in custom_neg.split(",") if t.strip()]
+    st.session_state["custom_neg_triggers"] = _trigs2
+    set_custom_negation_triggers(_trigs2)
 
 if scrub_phi:
     with st.expander("PHI scrubbing preview", expanded=False):
