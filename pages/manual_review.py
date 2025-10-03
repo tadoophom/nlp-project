@@ -10,7 +10,29 @@ from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from ui_theme import apply_theme, render_hero, render_stat_cards, section
+
 st.set_page_config(page_title="Manual Review", layout="wide")
+apply_theme()
+
+render_hero(
+    "Manual Review",
+    "",
+    tags=None,
+)
+
+render_stat_cards([
+    {
+        "label": "Queued results",
+        "value": len(st.session_state.get("analysis_results", pd.DataFrame())),
+        "description": "Items awaiting manual verification",
+    },
+    {
+        "label": "Reviewed so far",
+        "value": len(st.session_state.get("manual_reviews", {})),
+        "description": "Feedback entries captured this session",
+    },
+])
 
 st.title("Manual Review of Keyword Classifications")
 
@@ -37,167 +59,174 @@ if 'review_completed' not in st.session_state:
 # Create unique IDs for each result
 df['review_id'] = df.index
 
-st.write(f"Total items to review: {len(df)}")
+with section("Review progress", "Monitor completion, jump through the queue, and keep an eye on pending items."):
+    st.write(f"Total items to review: {len(df)}")
 
-# Progress tracking with visual indicators
-total_items = len(df)
-reviewed_items = len(st.session_state.manual_reviews)
-progress = reviewed_items / total_items if total_items > 0 else 0
+    # Progress tracking with visual indicators
+    total_items = len(df)
+    reviewed_items = len(st.session_state.manual_reviews)
+    progress = reviewed_items / total_items if total_items > 0 else 0
 
-st.progress(progress)
-col_prog1, col_prog2, col_prog3 = st.columns(3)
-with col_prog1:
-    st.metric("Total Items", total_items)
-with col_prog2:
-    st.metric("Reviewed", reviewed_items)
-with col_prog3:
-    st.metric("Remaining", total_items - reviewed_items)
+    st.progress(progress)
+    col_prog1, col_prog2, col_prog3 = st.columns(3)
+    with col_prog1:
+        st.metric("Total Items", total_items)
+    with col_prog2:
+        st.metric("Reviewed", reviewed_items)
+    with col_prog3:
+        st.metric("Remaining", total_items - reviewed_items)
 
-st.write(f"Progress: {reviewed_items}/{total_items} ({progress:.1%}) completed")
+    st.write(f"Progress: {reviewed_items}/{total_items} ({progress:.1%}) completed")
 
-# Show current item status
-current_review_id = df.iloc[st.session_state.current_review_index]['review_id'] if st.session_state.current_review_index < len(df) else None
-is_current_reviewed = current_review_id in st.session_state.manual_reviews if current_review_id is not None else False
+    # Show current item status
+    current_review_id = df.iloc[st.session_state.current_review_index]['review_id'] if st.session_state.current_review_index < len(df) else None
+    is_current_reviewed = current_review_id in st.session_state.manual_reviews if current_review_id is not None else False
 
-if is_current_reviewed:
-    st.success(f"Item {st.session_state.current_review_index + 1} has been reviewed")
-else:
-    st.info(f"Item {st.session_state.current_review_index + 1} needs review")
+    if is_current_reviewed:
+        st.success(f"Item {st.session_state.current_review_index + 1} has been reviewed")
+    else:
+        st.info(f"Item {st.session_state.current_review_index + 1} needs review")
 
-# Navigation
-col1, col2, col3, col4 = st.columns(4)
+    # Navigation
+    col1, col2, col3, col4 = st.columns(4)
 
-with col1:
-    if st.button("Previous", disabled=st.session_state.current_review_index <= 0):
-        st.session_state.current_review_index = max(0, st.session_state.current_review_index - 1)
-        st.rerun()
-
-with col2:
-    if st.button("Next", disabled=st.session_state.current_review_index >= len(df) - 1):
-        st.session_state.current_review_index = min(len(df) - 1, st.session_state.current_review_index + 1)
-        st.rerun()
-
-with col3:
-    jump_to = st.number_input("Jump to item:", min_value=1, max_value=len(df), value=st.session_state.current_review_index + 1) - 1
-    if st.button("Jump"):
-        st.session_state.current_review_index = jump_to
-        st.rerun()
-
-with col4:
-    if st.button("Skip to Next Unreviewed"):
-        # Find next unreviewed item
-        for i in range(st.session_state.current_review_index + 1, len(df)):
-            if df.iloc[i]['review_id'] not in st.session_state.manual_reviews:
-                st.session_state.current_review_index = i
-                st.rerun()
-                break
-        else:
-            st.info("All remaining items have been reviewed!")
-
-# Quick overview of review status
-if st.checkbox("Show Review Overview", value=False):
-    st.subheader("Review Status Overview")
-    overview_data = []
-    for idx, row in df.iterrows():
-        review_id = row['review_id']
-        is_reviewed = review_id in st.session_state.manual_reviews
-        overview_data.append({
-            'Item #': idx + 1,
-            'Keyword': row['keyword'],
-            'Model Classification': row['classification'],
-            'Status': 'Reviewed' if is_reviewed else 'Pending',
-            'Manual Classification': st.session_state.manual_reviews.get(review_id, {}).get('manual_classification', '') if is_reviewed else ''
-        })
-    
-    overview_df = pd.DataFrame(overview_data)
-    
-    # Color code the status
-    def highlight_status(val):
-        color = 'lightgreen' if val == 'Reviewed' else 'lightcoral'
-        return f'background-color: {color}'
-    
-    styled_df = overview_df.style.applymap(highlight_status, subset=['Status'])
-    st.dataframe(styled_df, use_container_width=True)
-
-# Current item
-if st.session_state.current_review_index < len(df):
-    current_item = df.iloc[st.session_state.current_review_index]
-    review_id = current_item['review_id']
-    
-    st.divider()
-    st.subheader(f"Review Item {st.session_state.current_review_index + 1} of {len(df)}")
-    
-    # Display the item details
-    col1, col2 = st.columns([2, 1])
-    
     with col1:
-        st.write("**Sentence Context:**")
-        sentence_text = current_item.get('sentence', 'No sentence context available')
-        keyword = current_item.get('keyword', '')
-        
-        # Create highlighted version of the sentence
-        if sentence_text and keyword:
-            # Case-insensitive highlighting
-            import re
-            # Escape special regex characters in keyword
-            escaped_keyword = re.escape(keyword)
-            # Create pattern for case-insensitive matching
-            pattern = re.compile(f'({escaped_keyword})', re.IGNORECASE)
-            # Replace with highlighted version
-            highlighted_sentence = pattern.sub(r'<mark style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">\1</mark>', sentence_text)
-            
-            # Display highlighted sentence
-            st.markdown(highlighted_sentence, unsafe_allow_html=True)
-            
-            # Also show plain text version for reference
-            with st.expander("Plain text version", expanded=False):
+        if st.button("Previous", disabled=st.session_state.current_review_index <= 0):
+            st.session_state.current_review_index = max(0, st.session_state.current_review_index - 1)
+            st.rerun()
+
+    def _next_disabled() -> bool:
+        if st.session_state.current_review_index >= len(df) - 1:
+            return True
+        next_index = st.session_state.current_review_index + 1
+        next_id = df.iloc[next_index]['review_id']
+        return next_id in st.session_state.manual_reviews
+
+    with col2:
+        if st.button("Next", disabled=_next_disabled()):
+            st.session_state.current_review_index = min(len(df) - 1, st.session_state.current_review_index + 1)
+            st.rerun()
+
+    with col3:
+        jump_to = st.number_input("Jump to item:", min_value=1, max_value=len(df), value=st.session_state.current_review_index + 1) - 1
+        if st.button("Jump"):
+            st.session_state.current_review_index = jump_to
+            st.rerun()
+
+    with col4:
+        if st.button("Skip to Next Unreviewed"):
+            # Find next unreviewed item
+            for i in range(st.session_state.current_review_index + 1, len(df)):
+                if df.iloc[i]['review_id'] not in st.session_state.manual_reviews:
+                    st.session_state.current_review_index = i
+                    st.rerun()
+                    break
+            else:
+                st.info("All remaining items have been reviewed!")
+
+    # Quick overview of review status
+    if st.checkbox("Show Review Overview", value=False):
+        st.subheader("Review Status Overview")
+        overview_data = []
+        for idx, row in df.iterrows():
+            review_id = row['review_id']
+            is_reviewed = review_id in st.session_state.manual_reviews
+            overview_data.append({
+                'Item #': idx + 1,
+                'Keyword': row['keyword'],
+                'Model Classification': row['classification'],
+                'Status': 'Reviewed' if is_reviewed else 'Pending',
+                'Manual Classification': st.session_state.manual_reviews.get(review_id, {}).get('manual_classification', '') if is_reviewed else ''
+            })
+
+        overview_df = pd.DataFrame(overview_data)
+
+        # Color code the status
+        def highlight_status(val):
+            color = 'lightgreen' if val == 'Reviewed' else 'lightcoral'
+            return f'background-color: {color}'
+
+        styled_df = overview_df.style.applymap(highlight_status, subset=['Status'])
+        st.dataframe(styled_df, use_container_width=True)
+
+with section("Review workspace", "Inspect the highlighted context and record manual feedback."):
+    if st.session_state.current_review_index < len(df):
+        current_item = df.iloc[st.session_state.current_review_index]
+        review_id = current_item['review_id']
+
+        st.subheader(f"Review Item {st.session_state.current_review_index + 1} of {len(df)}")
+
+        # Display the item details
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            st.write("**Sentence Context:**")
+            sentence_text = current_item.get('sentence', 'No sentence context available')
+            keyword = current_item.get('keyword', '')
+
+            # Create highlighted version of the sentence
+            if sentence_text and keyword:
+                # Case-insensitive highlighting
+                import re
+                # Escape special regex characters in keyword
+                escaped_keyword = re.escape(keyword)
+                # Create pattern for case-insensitive matching
+                pattern = re.compile(f'({escaped_keyword})', re.IGNORECASE)
+                # Replace with highlighted version
+                highlighted_sentence = pattern.sub(r'<mark style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">\1</mark>', sentence_text)
+
+                # Display highlighted sentence
+                st.markdown(highlighted_sentence, unsafe_allow_html=True)
+
+                # Also show plain text version for reference
+                with st.expander("Plain text version", expanded=False):
+                    st.text_area(
+                        "Sentence",
+                        value=sentence_text,
+                        height=100,
+                        disabled=True,
+                        label_visibility="collapsed",
+                    )
+            else:
                 st.text_area(
                     "Sentence",
                     value=sentence_text,
-                    height=100,
+                    height=150,
                     disabled=True,
                     label_visibility="collapsed",
                 )
-        else:
-            st.text_area(
-                "Sentence",
-                value=sentence_text,
-                height=150,
-                disabled=True,
-                label_visibility="collapsed",
-            )
-        
-        st.write("**Keyword Found:**")
-        st.write(f"**'{current_item['keyword']}'** at token position {current_item.get('token_index', 'N/A')}")
-        
-        st.write("**Additional Context:**")
-        st.write(f"**POS Tag:** {current_item.get('pos', 'N/A')}")
-        st.write(f"**Dependency:** {current_item.get('dep', 'N/A')}")
-        st.write(f"**Sentence Index:** {current_item.get('sent_index', 'N/A')}")
-    
-    with col2:
-        st.write("**Model Classification:**")
-        classification_color = {
-            'Positive': 'green',
-            'Negative': 'red', 
-            'Neutral': 'orange'
-        }.get(current_item['classification'], 'gray')
-        
-        st.markdown(f"<h3 style='color: {classification_color};'>{current_item['classification']}</h3>", unsafe_allow_html=True)
-        
-        if 'confidence' in current_item:
-            confidence_val = current_item['confidence']
-            confidence_color = 'green' if confidence_val > 0.7 else 'orange' if confidence_val > 0.4 else 'red'
-            st.markdown(f"**Confidence:** <span style='color: {confidence_color};'>{confidence_val:.3f}</span>", unsafe_allow_html=True)
-        
-        if 'model' in current_item:
-            st.write(f"**Model:** {current_item['model']}")
-        
-        # Show keyword highlighting example
-        st.write("**Keyword in Context:**")
-        if sentence_text and keyword:
-            # Show a snippet around the keyword
-            keyword_pos = sentence_text.lower().find(keyword.lower())
+
+            st.write("**Keyword Found:**")
+            st.write(f"**'{current_item['keyword']}'** at token position {current_item.get('token_index', 'N/A')}")
+
+            st.write("**Additional Context:**")
+            st.write(f"**POS Tag:** {current_item.get('pos', 'N/A')}")
+            st.write(f"**Dependency:** {current_item.get('dep', 'N/A')}")
+            st.write(f"**Sentence Index:** {current_item.get('sent_index', 'N/A')}")
+
+        with col2:
+            st.write("**Model Classification:**")
+            classification_color = {
+                'Positive': 'green',
+                'Negative': 'red',
+                'Neutral': 'orange'
+            }.get(current_item['classification'], 'gray')
+
+            st.markdown(f"<h3 style='color: {classification_color};'>{current_item['classification']}</h3>", unsafe_allow_html=True)
+
+            if 'confidence' in current_item:
+                confidence_val = current_item['confidence']
+                confidence_color = 'green' if confidence_val > 0.7 else 'orange' if confidence_val > 0.4 else 'red'
+                st.markdown(f"**Confidence:** <span style='color: {confidence_color};'>{confidence_val:.3f}</span>", unsafe_allow_html=True)
+
+            if 'model' in current_item:
+                st.write(f"**Model:** {current_item['model']}")
+
+            # Show keyword highlighting example
+            st.write("**Keyword in Context:**")
+            if sentence_text and keyword:
+                # Show a snippet around the keyword
+                keyword_pos = sentence_text.lower().find(keyword.lower())
             if keyword_pos != -1:
                 start = max(0, keyword_pos - 30)
                 end = min(len(sentence_text), keyword_pos + len(keyword) + 30)

@@ -61,7 +61,7 @@ Quick start
 PubMed Abstract Retrieval & Dataset Creation
 -------------------------------------------
 
-You can use the PubMed API to search for abstrac  ts using clinical keywords and/or MeSH terms. Retrieved abstracts are saved as a CSV file for downstream analysis and model training.
+You can use the PubMed API to search for abstracts using clinical keywords and/or MeSH terms. Retrieved abstracts are saved as a CSV file for downstream analysis and model training.
 
 **Usage:**
 

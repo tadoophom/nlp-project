@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 from corpus_pipeline import load_protein_entries, build_corpus
+from ui_theme import apply_theme, render_hero, render_stat_cards
 
 
 def _entries_to_dataframe(entries) -> pd.DataFrame:
@@ -104,6 +105,36 @@ def highlight_terms_in_text(text: str, keywords: List[str], mesh_terms: List[str
     return highlighted_text
 
 st.set_page_config(page_title="PubMed Search", layout="wide")
+apply_theme()
+
+render_hero(
+    "PubMed Explorer",
+    "",
+    tags=None,
+)
+
+results_cached = st.session_state.get("pubmed_search_results", [])
+selected_cached = st.session_state.get("selected_pubmed_articles", [])
+full_text_cached = sum(1 for r in results_cached if r.get("has_full_text")) if results_cached else 0
+
+render_stat_cards([
+    {
+        "label": "Articles in view",
+        "value": len(results_cached) if results_cached else "—",
+        "description": "Results from the latest PubMed query",
+    },
+    {
+        "label": "Full texts retrieved",
+        "value": full_text_cached if full_text_cached else "—",
+        "description": "Matches with open-access content",
+    },
+    {
+        "label": "Selected for analysis",
+        "value": len(selected_cached) if selected_cached else 0,
+        "description": "Queued articles ready to export",
+    },
+])
+
 st.title("PubMed Search")
 st.write("Search for academic articles from PubMed database")
 
@@ -349,182 +380,200 @@ with st.sidebar:
     
     search_button = st.button("Search PubMed", type="primary")
 
-# Main content area
-col1, col2 = st.columns([2, 1])
+# Main content area – run search when requested
+if search_button:
+    if not search_pubmed or not fetch_abstracts:
+        st.error("PubMed functionality not available. Please check pubmed_fetch module.")
+    else:
+        # Allow Boolean Builder or custom raw query to satisfy input requirements
+        has_builder_query = 'builder_enabled' in locals() and builder_enabled and bool(builder_raw_query)
+        has_raw_query = 'use_raw_query' in locals() and use_raw_query and bool(raw_query.strip())
+        has_basic_terms = bool(pubmed_keywords.strip()) or bool(pubmed_mesh.strip())
 
-with col1:
-    if search_button:
-        if not search_pubmed or not fetch_abstracts:
-            st.error("PubMed functionality not available. Please check pubmed_fetch module.")
-        else:
-            # Allow Boolean Builder or custom raw query to satisfy input requirements
-            has_builder_query = 'builder_enabled' in locals() and builder_enabled and bool(builder_raw_query)
-            has_raw_query = 'use_raw_query' in locals() and use_raw_query and bool(raw_query.strip())
-            has_basic_terms = bool(pubmed_keywords.strip()) or bool(pubmed_mesh.strip())
+        keywords_only_block = (
+            search_logic == "Keywords only" and
+            not pubmed_keywords.strip() and
+            not has_builder_query and
+            not has_raw_query
+        )
+        mesh_only_block = (
+            search_logic == "MeSH terms only" and
+            not pubmed_mesh.strip() and
+            not has_builder_query and
+            not has_raw_query
+        )
+        no_terms_block = (
+            not has_basic_terms and
+            not has_builder_query and
+            not has_raw_query
+        )
 
-            keywords_only_block = (
-                search_logic == "Keywords only" and
-                not pubmed_keywords.strip() and
-                not has_builder_query and
-                not has_raw_query
-            )
-            mesh_only_block = (
-                search_logic == "MeSH terms only" and
-                not pubmed_mesh.strip() and
-                not has_builder_query and
-                not has_raw_query
-            )
-            no_terms_block = (
-                not has_basic_terms and
-                not has_builder_query and
-                not has_raw_query
-            )
+        if keywords_only_block:
+            st.error("Please enter keywords for keywords-only search, or use the Boolean Builder/custom query.")
+            st.stop()
+        if mesh_only_block:
+            st.error("Please enter MeSH terms for MeSH-only search, or use the Boolean Builder/custom query.")
+            st.stop()
+        if no_terms_block:
+            st.error("Provide Keywords, MeSH terms, or use the Boolean Builder/custom query.")
+            st.stop()
+        with st.spinner("Searching PubMed..."):
+            try:
+                # Prepare search parameters
+                keywords_list = [k.strip() for k in pubmed_keywords.split(",") if k.strip()]
+                mesh_list = [m.strip() for m in pubmed_mesh.split(",") if m.strip()]
+                exclude_kw_list = [k.strip() for k in exclude_keywords.split(",") if k.strip()] if exclude_keywords.strip() else []
+                exclude_mesh_list = [m.strip() for m in exclude_mesh.split(",") if m.strip()] if exclude_mesh.strip() else []
 
-            if keywords_only_block:
-                st.error("Please enter keywords for keywords-only search, or use the Boolean Builder/custom query.")
-                st.stop()
-            if mesh_only_block:
-                st.error("Please enter MeSH terms for MeSH-only search, or use the Boolean Builder/custom query.")
-                st.stop()
-            if no_terms_block:
-                st.error("Provide Keywords, MeSH terms, or use the Boolean Builder/custom query.")
-                st.stop()
-            with st.spinner("Searching PubMed..."):
-                try:
-                    # Prepare search parameters
-                    keywords_list = [k.strip() for k in pubmed_keywords.split(",") if k.strip()]
-                    mesh_list = [m.strip() for m in pubmed_mesh.split(",") if m.strip()]
-                    exclude_kw_list = [k.strip() for k in exclude_keywords.split(",") if k.strip()] if exclude_keywords.strip() else []
-                    exclude_mesh_list = [m.strip() for m in exclude_mesh.split(",") if m.strip()] if exclude_mesh.strip() else []
-                    
-                    # Map search logic
-                    logic_mapping = {
-                        "OR (broader search - default)": "OR",
-                        "AND (narrower search)": "AND", 
-                        "Keywords only": "keywords_only",
-                        "MeSH terms only": "mesh_only"
-                    }
-                    search_logic_param = logic_mapping.get(search_logic, "OR")
-                    
-                    # Use advanced search if any advanced options are set
-                    use_advanced = (
-                        use_date_filter or 
-                        exclude_keywords.strip() or 
-                        exclude_mesh.strip() or 
-                        article_types or 
-                        language_filter != "Any language" or 
-                        search_logic != "OR (broader search - default)" or
-                        ("raw_query" in locals() and use_raw_query and raw_query.strip()) or
-                        ("builder_raw_query" in locals() and builder_enabled and builder_raw_query)
+                # Map search logic
+                logic_mapping = {
+                    "OR (broader search - default)": "OR",
+                    "AND (narrower search)": "AND",
+                    "Keywords only": "keywords_only",
+                    "MeSH terms only": "mesh_only"
+                }
+                search_logic_param = logic_mapping.get(search_logic, "OR")
+
+                # Use advanced search if any advanced options are set
+                use_advanced = (
+                    use_date_filter or
+                    exclude_keywords.strip() or
+                    exclude_mesh.strip() or
+                    article_types or
+                    language_filter != "Any language" or
+                    search_logic != "OR (broader search - default)" or
+                    ("raw_query" in locals() and use_raw_query and raw_query.strip()) or
+                    ("builder_raw_query" in locals() and builder_enabled and builder_raw_query)
+                )
+
+                if use_advanced and search_pubmed_advanced:
+                    ids, actual_query = search_pubmed_advanced(
+                        keywords=keywords_list,
+                        mesh_terms=mesh_list,
+                        retmax=int(pubmed_retmax),
+                        search_logic=search_logic_param,
+                        date_query=date_query if use_date_filter else "",
+                        exclude_keywords=exclude_kw_list,
+                        exclude_mesh=exclude_mesh_list,
+                        article_types=article_types,
+                        language=language_filter if language_filter != "Any language" else "",
+                        raw_query=(
+                            builder_raw_query
+                            if (builder_enabled and builder_raw_query)
+                            else (raw_query if ("raw_query" in locals() and use_raw_query and raw_query.strip()) else None)
+                        ),
                     )
-                    
-                    if use_advanced and search_pubmed_advanced:
-                        ids, actual_query = search_pubmed_advanced(
-                            keywords=keywords_list,
-                            mesh_terms=mesh_list,
-                            retmax=int(pubmed_retmax),
-                            search_logic=search_logic_param,
-                            date_query=date_query if use_date_filter else "",
-                            exclude_keywords=exclude_kw_list,
-                            exclude_mesh=exclude_mesh_list,
-                            article_types=article_types,
-                            language=language_filter,
-                            raw_query=(
-                                builder_raw_query if ("builder_raw_query" in locals() and builder_enabled and builder_raw_query)
-                                else (raw_query if ("raw_query" in locals() and use_raw_query and raw_query.strip()) else None)
-                            ),
-                        )
-                        # Show the actual query used
-                        with st.expander("Actual PubMed Query Used", expanded=False):
-                            st.code(actual_query)
-                    else:
-                        # Use simple search for basic queries
-                        ids = search_pubmed(keywords_list, mesh_list, int(pubmed_retmax))
-                        actual_query = "Basic search (no advanced options)"
-                    
-                    if ids:
-                        st.success(f"Found {len(ids)} articles!")
-                        with st.spinner("Fetching article details..." + (" (including full text where available)" if try_full_text else "")):
-                            records = fetch_abstracts(ids, try_full_text=try_full_text)
-                            
-                            # Show full text statistics
-                            if try_full_text:
-                                full_text_count = sum(1 for r in records if r.get('has_full_text'))
-                                if full_text_count > 0:
-                                    st.success(f"Retrieved full text for {full_text_count} out of {len(records)} articles!")
-                                else:
-                                    st.info("No full text available for these articles (abstracts only)")
-                            
-                            st.session_state.pubmed_search_results = records
-                            # Store search terms for highlighting
-                            st.session_state.search_keywords = keywords_list
-                            st.session_state.search_mesh_terms = mesh_list
-                    else:
-                        st.warning("No articles found matching the search criteria.")
-                        st.session_state.pubmed_search_results = []
-                        
-                except Exception as e:
-                    st.error(f"Search failed: {str(e)}")
-                    st.session_state.pubmed_search_results = []
+                else:
+                    # Use simple search for basic queries
+                    ids = search_pubmed(keywords_list, mesh_list, int(pubmed_retmax))
+                    actual_query = "Basic search (no advanced options)"
 
-    # Display search results
-    if st.session_state.pubmed_search_results:
-        st.subheader(f"Search Results ({len(st.session_state.pubmed_search_results)} articles)")
-        
-        # Show highlighting legend
-        if st.session_state.get('search_keywords') or st.session_state.get('search_mesh_terms'):
-            st.markdown("**Highlighting Legend:**")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.session_state.get('search_keywords'):
-                    keywords_str = ", ".join(st.session_state.get('search_keywords', []))
-                    st.markdown(f'<span style="background-color: #E3F2FD; color: #1976D2; font-weight: bold; padding: 2px 6px; border-radius: 3px;">Keywords</span> ({keywords_str})', unsafe_allow_html=True)
-            with col2:
-                if st.session_state.get('search_mesh_terms'):
-                    mesh_str = ", ".join(st.session_state.get('search_mesh_terms', []))
-                    st.markdown(f'<span style="background-color: #E8F5E8; color: #2E7D32; font-weight: bold; padding: 2px 6px; border-radius: 3px;">MeSH Terms</span> ({mesh_str})', unsafe_allow_html=True)
-            st.write("")  # Add some spacing
-        
-        # Create DataFrame for easier handling
-        df = pd.DataFrame(st.session_state.pubmed_search_results)
-        
-        # Selection interface
-        st.write("**Select articles to add to your analysis:**")
-        
-        # Track selections without page refresh
+                if ids:
+                    st.success(f"Found {len(ids)} articles!")
+                    with st.spinner("Fetching article details..." + (" (including full text where available)" if try_full_text else "")):
+                        records = fetch_abstracts(ids, try_full_text=try_full_text)
+
+                        # Show full text statistics
+                        if try_full_text:
+                            full_text_count = sum(1 for r in records if r.get('has_full_text'))
+                            if full_text_count > 0:
+                                st.success(f"Retrieved full text for {full_text_count} out of {len(records)} articles!")
+                            else:
+                                st.info("No full text available for these articles (abstracts only)")
+                            st.session_state["last_full_text_count"] = full_text_count
+                        else:
+                            st.session_state["last_full_text_count"] = None
+
+                        st.session_state.pubmed_search_results = records
+                        st.session_state.search_keywords = keywords_list
+                        st.session_state.search_mesh_terms = mesh_list
+                        st.session_state["last_pubmed_query"] = actual_query
+                else:
+                    st.warning("No articles found matching the search criteria.")
+                    st.session_state.pubmed_search_results = []
+                    st.session_state["last_pubmed_query"] = ""
+
+            except Exception as e:
+                st.error(f"Search failed: {str(e)}")
+                st.session_state.pubmed_search_results = []
+                st.session_state["last_pubmed_query"] = ""
+
+results: List[Dict[str, Any]] = st.session_state.get("pubmed_search_results", [])
+selected_articles: List[Dict[str, Any]] = st.session_state.get("selected_pubmed_articles", [])
+
+if results:
+    total_results = len(results)
+    full_text_count = sum(1 for r in results if r.get("has_full_text"))
+    selected_count = len(selected_articles)
+
+    metric_cols = st.columns(3)
+    metric_cols[0].metric("Results", f"{total_results}")
+    metric_cols[1].metric("Full texts", f"{full_text_count}")
+    metric_cols[2].metric("Selected", f"{selected_count}")
+
+    st.caption("Tip: results, analysis, and export tools are organised in tabs below for faster navigation.")
+
+    main_col, sidebar_col = st.columns([3, 1], gap="large")
+
+    df = pd.DataFrame(results)
+
+    # ── Main workspace tabs ───────────────────────────────────────────────────
+    results_tab, analysis_tab, export_tab = (main_col.tabs([
+        "Results",
+        "Batch Analysis",
+        "Export & Sharing",
+    ]))
+
+    with results_tab:
+        search_keywords = st.session_state.get('search_keywords', [])
+        search_mesh_terms = st.session_state.get('search_mesh_terms', [])
+
+        if search_keywords or search_mesh_terms:
+            st.markdown("**Highlighting Legend**")
+            legend_cols = st.columns(2)
+            if search_keywords:
+                keywords_str = ", ".join(search_keywords)
+                legend_cols[0].markdown(
+                    f'<span style="background-color: #E3F2FD; color: #1976D2; font-weight: bold; padding: 2px 6px; border-radius: 3px;">Keywords</span> ({keywords_str})',
+                    unsafe_allow_html=True,
+                )
+            if search_mesh_terms:
+                mesh_str = ", ".join(search_mesh_terms)
+                legend_cols[1].markdown(
+                    f'<span style="background-color: #E8F5E8; color: #2E7D32; font-weight: bold; padding: 2px 6px; border-radius: 3px;">MeSH Terms</span> ({mesh_str})',
+                    unsafe_allow_html=True,
+                )
+
+        if st.session_state.get("last_pubmed_query"):
+            with st.expander("Actual PubMed query", expanded=False):
+                st.code(st.session_state["last_pubmed_query"])
+
+        st.write("**Select articles to add to your analysis**")
+
         for idx, row in df.iterrows():
             col_check, col_content = st.columns([1, 10])
-            
-            # Check if this article is already selected
-            is_selected = any(a.get('pmid') == row.get('pmid') for a in st.session_state.selected_pubmed_articles)
-            
+            is_selected = any(a.get('pmid') == row.get('pmid') for a in selected_articles)
+
             with col_check:
-                # Use session state to track selection
                 checkbox_key = f"select_{row.get('pmid', idx)}"
-                if st.checkbox("", value=is_selected, key=checkbox_key):
-                    # Add to selection if not already there
+                if st.checkbox(
+                    "Select article",
+                    value=is_selected,
+                    key=checkbox_key,
+                    label_visibility="collapsed",
+                ):
                     if not is_selected:
-                        st.session_state.selected_pubmed_articles.append(row.to_dict())
+                        selected_articles.append(row.to_dict())
                 else:
-                    # Remove from selection if it was there
                     if is_selected:
-                        st.session_state.selected_pubmed_articles = [
-                            a for a in st.session_state.selected_pubmed_articles 
-                            if a.get('pmid') != row.get('pmid')
+                        selected_articles = [
+                            a for a in selected_articles if a.get('pmid') != row.get('pmid')
                         ]
-            
+
             with col_content:
-                # Get search terms for highlighting
-                search_keywords = st.session_state.get('search_keywords', [])
-                search_mesh_terms = st.session_state.get('search_mesh_terms', [])
-                
-                # Article preview with full text indicator and highlighted title
                 title_prefix = "[TEXT]" if row.get('has_full_text') else "[ABSTRACT]"
                 highlighted_title = highlight_terms_in_text(row.get('title', 'No title'), search_keywords, search_mesh_terms)
-                
-                # Use markdown to render HTML highlighting in expander header
                 with st.expander(f"{title_prefix} {row.get('title', 'No title')}", expanded=False):
-                    # Show highlighted title separately inside expander
                     st.markdown(f"**Title:** {highlighted_title}", unsafe_allow_html=True)
                     st.write(f"**Authors:** {row.get('authors', 'N/A')}")
                     st.write(f"**Journal:** {row.get('journal', 'N/A')}")
@@ -532,66 +581,72 @@ with col1:
                     st.write(f"**PMID:** {row.get('pmid', 'N/A')}")
                     if row.get('doi'):
                         st.write(f"**DOI:** {row.get('doi')}")
-                    
-                    # Show match indicators
+
                     if search_keywords or search_mesh_terms:
                         st.markdown("**Search term matches:**")
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if search_keywords:
-                                st.markdown('<span style="background-color: #E3F2FD; color: #1976D2; font-weight: bold; padding: 2px 6px; border-radius: 3px; margin-right: 5px;">Keywords</span>', unsafe_allow_html=True)
-                        with col2:
-                            if search_mesh_terms:
-                                st.markdown('<span style="background-color: #E8F5E8; color: #2E7D32; font-weight: bold; padding: 2px 6px; border-radius: 3px;">MeSH Terms</span>', unsafe_allow_html=True)
-                    
-                    # Show full text availability
+                        legend_inner = st.columns(2)
+                        if search_keywords:
+                            legend_inner[0].markdown(
+                                '<span style="background-color: #E3F2FD; color: #1976D2; font-weight: bold; padding: 2px 6px; border-radius: 3px; margin-right: 5px;">Keywords</span>',
+                                unsafe_allow_html=True,
+                            )
+                        if search_mesh_terms:
+                            legend_inner[1].markdown(
+                                '<span style="background-color: #E8F5E8; color: #2E7D32; font-weight: bold; padding: 2px 6px; border-radius: 3px;">MeSH Terms</span>',
+                                unsafe_allow_html=True,
+                            )
+
                     if row.get('has_full_text'):
                         st.success(f"Full text available from: {row.get('full_text_source', 'Unknown source')}")
                         if row.get('full_text_url'):
-                            st.markdown(f"[View full text]({row.get('full_text_url')})", unsafe_allow_html=False)
+                            st.markdown(f"[View full text]({row.get('full_text_url')})")
                     elif row.get('full_text_source') and 'PDF' in row.get('full_text_source', ''):
                         pdf_url = row.get('full_text_url') or row.get('full_text_source').split(': ', 1)[1]
-                        st.info(f"Open access PDF available")
+                        st.info("Open access PDF available")
                         if pdf_url:
-                            st.markdown(f"[Open PDF]({pdf_url})", unsafe_allow_html=False)
+                            st.markdown(f"[Open PDF]({pdf_url})")
                     else:
                         st.warning("Only abstract available")
-                    
+
                     if row.get('abstract'):
                         highlighted_abstract = highlight_terms_in_text(row.get('abstract'), search_keywords, search_mesh_terms)
                         st.markdown(f"**Abstract:** {highlighted_abstract}", unsafe_allow_html=True)
                     else:
                         st.write("*No abstract available*")
-                    
-                    # Show preview of full text if available
+
                     if row.get('full_text') and row.get('has_full_text'):
                         with st.expander("View Full Text", expanded=False):
                             highlighted_full = highlight_terms_in_text(row.get('full_text', ''), search_keywords, search_mesh_terms)
                             st.markdown(highlighted_full, unsafe_allow_html=True)
-        
-        # Batch sentiment analysis over abstracts
-        st.divider()
-        st.subheader("Batch Sentiment Analysis (Abstracts)")
-        st.caption("Analyze each abstract with your keyword list and export.")
 
-        analysis_kw_default = (
-            ", ".join(st.session_state.get("search_keywords", []))
-            if st.session_state.get("search_keywords") else ""
+        # Update selection state once per rerun
+        st.session_state.selected_pubmed_articles = selected_articles
+
+        st.download_button(
+            label="Download all results as CSV",
+            data=df.to_csv(index=False),
+            file_name="pubmed_search_results.csv",
+            mime="text/csv",
+            key="download_all_results",
         )
+
+    with analysis_tab:
+        st.subheader("Batch Sentiment Analysis")
+        st.caption("Analyze every abstract with your keyword list and optional NLP visualisations.")
+
+        default_kw_string = ", ".join(st.session_state.get("search_keywords", []))
         analysis_keywords_raw = st.text_input(
             "Analysis keywords (comma-separated)",
-            value=analysis_kw_default,
-            placeholder="e.g., procalcitonin, sepsis, antibiotic therapy"
+            value=default_kw_string,
+            placeholder="e.g., procalcitonin, sepsis, antibiotic therapy",
+            key="analysis_keywords_input",
         )
         analysis_keywords = [k.strip().lower() for k in analysis_keywords_raw.split(",") if k.strip()]
 
-        ca1, ca2, ca3 = st.columns(3)
-        with ca1:
-            run_analysis = st.button("Run Analysis on All Results")
-        with ca2:
-            run_and_export = st.button("Analyze + Download CSV")
-        with ca3:
-            run_selected = st.button("Analyze Selected Only")
+        action_cols = st.columns(3)
+        run_analysis = action_cols[0].button("Run on all results", key="analysis_run_all")
+        run_and_export = action_cols[1].button("Analyze + download CSV", key="analysis_run_export")
+        run_selected = action_cols[2].button("Analyze selected only", key="analysis_run_selected")
 
         def _summarize_hits(hits: List[Dict[str, Any]]) -> Dict[str, Any]:
             per_kw: Dict[str, Dict[str, int]] = {}
@@ -639,357 +694,221 @@ with col1:
             else:
                 with st.spinner("Analyzing abstracts…"):
                     nlp = load_pipeline(analysis_model, gpu=False)
-                    # Sync custom negation triggers from main app if available
                     if set_custom_negation_triggers is not None:
                         trig = st.session_state.get("custom_neg_triggers", None)
                         if trig:
                             set_custom_negation_triggers(trig)
-                    # Choose source: selected articles or all results
-                    source_rows = (
-                        st.session_state.selected_pubmed_articles
-                        if run_selected and st.session_state.get("selected_pubmed_articles")
-                        else st.session_state.pubmed_search_results
-                    )
-                    enriched_rows = []
-                    for row in source_rows:
-                        abs_text = row.get("abstract", "") or ""
-                        hits = nlp_extract(abs_text, analysis_keywords, nlp)
+
+                    target_articles = df
+                    if run_selected:
+                        if not selected_articles:
+                            st.warning("No articles selected. Select articles in the Results tab first.")
+                            st.stop()
+                        target_articles = pd.DataFrame(selected_articles)
+
+                    enriched_rows: List[Dict[str, Any]] = []
+                    hit_rows: List[Dict[str, Any]] = []
+
+                    for _, article in target_articles.iterrows():
+                        abstract_text = article.get("abstract", "") or ""
+                        hits = nlp_extract(abstract_text, analysis_keywords, nlp)
                         summary = _summarize_hits(hits)
-                        new_row = dict(row)
-                        new_row.update(summary)
-                        new_row["analysis_keywords"] = ", ".join(analysis_keywords)
-                        new_row["hits"] = hits  # persist per-article details
-                        enriched_rows.append(new_row)
+                        enriched = article.to_dict()
+                        enriched.update(summary)
+                        enriched_rows.append(enriched)
 
-                df_preview = pd.DataFrame(enriched_rows)
-                st.dataframe(df_preview[[
-                    c for c in ["pmid", "title", "year", "journal", "analysis_keywords", "sentiment_overall", "sentiment_summary"]
-                    if c in df_preview.columns
-                ]], use_container_width=True)
+                        for hit in hits:
+                            hit_rows.append({
+                                "pmid": article.get("pmid"),
+                                "title": article.get("title"),
+                                "keyword": hit.get("keyword"),
+                                "classification": hit.get("classification"),
+                                "context": hit.get("context"),
+                                "sentence": hit.get("sentence"),
+                            })
 
-                st.session_state.pubmed_search_results = enriched_rows
+                st.success("Analysis complete")
+                results_df = pd.DataFrame(enriched_rows)
+                st.dataframe(results_df[[
+                    "pmid", "title", "sentiment_overall", "sentiment_summary"
+                ]], use_container_width=True, hide_index=True)
 
                 if run_and_export:
-                    csv = df_preview.to_csv(index=False)
+                    csv_hits = pd.DataFrame(hit_rows).to_csv(index=False) if hit_rows else ""
+                    overview_csv = results_df.to_csv(index=False).encode("utf-8")
+                    hits_bytes = csv_hits.encode("utf-8") if csv_hits else b""
+                    buf = io.BytesIO()
+                    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+                        zf.writestr("pubmed_overview.csv", overview_csv)
+                        if hits_bytes:
+                            zf.writestr("pubmed_hit_level_analysis.csv", hits_bytes)
                     st.download_button(
-                        label="Download CSV (with sentiment)",
-                        data=csv,
-                        file_name="pubmed_search_results_with_sentiment.csv",
-                        mime="text/csv",
+                        label="Download analysis bundle",
+                        data=buf.getvalue(),
+                        file_name="pubmed_analysis_bundle.zip",
+                        mime="application/zip",
+                        key="analysis_bundle_download",
                     )
 
-                # Detailed per-article view mirroring the main analysis
-                st.divider()
-                st.subheader("Per-Article Analysis Details")
-                st.caption("Inspect hits, sentences, and labels for each abstract.")
+    with export_tab:
+        st.subheader("Build export package")
+        st.caption("Send selected articles to the main analysis page or download customised summaries.")
 
-                COLOUR = {"Positive": "#e6ffed", "Negative": "#ffeef0", "Neutral": "#fff8e1"}
-                # Reuse keyword colors from main app if available
-                kw_colors = st.session_state.get("_kw_colors", {})
+        if not selected_articles:
+            st.info("No articles selected yet. Use the Results tab to add articles to your export list.")
+        else:
+            export_format = st.radio(
+                "Choose export format",
+                ["Title + Abstract", "Full Article Text", "Abstract Only", "Full Text Only (if available)", "Custom Format"],
+                index=0,
+                key="export_format_choice",
+            )
 
-                for i, art in enumerate(enriched_rows, 1):
-                    with st.expander(f"{i}. {art.get('title','No title')} — {art.get('sentiment_overall','Neutral')} ", expanded=False):
-                        st.write(f"PMID: {art.get('pmid','N/A')} | Year: {art.get('year','N/A')} | Journal: {art.get('journal','N/A')}")
-                        if art.get("sentiment_summary"):
-                            st.write(f"Summary: {art['sentiment_summary']}")
-                        hits = art.get("hits", [])
-                        if hits:
-                            df_hits = pd.DataFrame(hits)
-                            # Keep a consistent column order if available
-                            cols = [c for c in ["keyword","classification","sentence","pos","dep","sent_index","token_index"] if c in df_hits.columns]
-                            st.dataframe(df_hits[cols] if cols else df_hits, use_container_width=True, height=240)
+            include_title = include_authors = include_journal = include_year = True
+            include_pmid = include_doi = include_abstract = include_full_text_note = False
+            separator = "\n\n"
 
-                            # Sentence view with classification highlighting
-                            with st.expander("Sentence View (colored by classification)", expanded=False):
-                                # Legend
-                                st.markdown(
-                                    "<div>"
-                                    "<span style='background:#e6ffed;padding:2px 6px;border-radius:4px;margin-right:6px;'>Positive</span>"
-                                    "<span style='background:#ffeef0;padding:2px 6px;border-radius:4px;margin-right:6px;'>Negative</span>"
-                                    "<span style='background:#fff8e1;padding:2px 6px;border-radius:4px;'>Neutral</span>"
-                                    "</div>",
-                                    unsafe_allow_html=True,
-                                )
-                                for idx_h, h in enumerate(hits):
-                                    sent = h.get("sentence", "")
-                                    kw = h.get("keyword", "")
-                                    cls = h.get("classification", "Neutral")
-                                    color = COLOUR.get(cls, "#fff")
-                                    # Highlight keyword within sentence (case-insensitive)
-                                    if kw:
-                                        try:
-                                            pattern = re.compile(re.escape(kw), flags=re.I)
-                                            highlighted = pattern.sub(lambda m: f"<mark style='background:#fff59d;padding:0 2px;border-radius:2px;'>{m.group(0)}</mark>", sent)
-                                        except Exception:
-                                            highlighted = sent
-                                    else:
-                                        highlighted = sent
-                                    edge = kw_colors.get(kw, "#ddd") if isinstance(kw_colors, dict) else "#ddd"
-                                    html = (
-                                        f"<div style='background:{color};padding:8px;border-radius:6px;margin:6px 0;"
-                                        f"border-left: 6px solid {edge};'>"
-                                        f"<b style='color:{edge}'>{kw}</b> — <i>{cls}</i><br/>{highlighted}"
-                                        f"</div>"
-                                    )
-                                    st.markdown(html, unsafe_allow_html=True)
+            if export_format == "Custom Format":
+                include_title = st.checkbox("Include title", value=True, key="export_include_title")
+                include_authors = st.checkbox("Include authors", value=True, key="export_include_authors")
+                include_journal = st.checkbox("Include journal", value=True, key="export_include_journal")
+                include_year = st.checkbox("Include year", value=True, key="export_include_year")
+                include_pmid = st.checkbox("Include PMID", value=False, key="export_include_pmid")
+                include_doi = st.checkbox("Include DOI (if available)", value=False, key="export_include_doi")
+                include_abstract = st.checkbox("Include abstract", value=True, key="export_include_abstract")
+                include_full_text_note = st.checkbox("Include full-text note", value=True, key="export_include_note")
+                separator = st.text_input("Section separator", value="\n\n", key="export_separator")
 
-                                    # Feedback buttons per hit (if DB available)
-                                    if insert_feedback is not None:
-                                        c1, c2 = st.columns(2)
-                                        if c1.button("👍 Correct", key=f"hit_ok_{i}_{idx_h}"):
-                                            insert_feedback(keyword=kw, sentence=sent, classification=cls, correct_label=True)
-                                            st.success("Feedback recorded as correct")
-                                        if c2.button("👎 Incorrect", key=f"hit_bad_{i}_{idx_h}"):
-                                            insert_feedback(keyword=kw, sentence=sent, classification=cls, correct_label=False)
-                                            st.success("Feedback recorded as incorrect")
+            if st.button("Preview export text", key="preview_export"):
+                preview_chunks: List[str] = []
+                for i, article in enumerate(selected_articles, 1):
+                    chunk = []
+                    if export_format in {"Title + Abstract", "Full Article Text"} or (export_format == "Custom Format" and include_title):
+                        chunk.append(f"Title: {article.get('title', 'No title')}")
+                    if export_format in {"Title + Abstract", "Full Article Text"} or (export_format == "Custom Format" and include_authors):
+                        chunk.append(f"Authors: {article.get('authors', 'No authors listed')}")
+                    if export_format in {"Title + Abstract", "Full Article Text"} or (export_format == "Custom Format" and include_journal):
+                        chunk.append(f"Journal: {article.get('journal', 'No journal listed')}")
+                    if export_format in {"Title + Abstract", "Full Article Text"} or (export_format == "Custom Format" and include_year):
+                        chunk.append(f"Year: {article.get('year', 'No year listed')}")
+                    if (export_format == "Full Article Text") or (export_format == "Custom Format" and include_pmid):
+                        chunk.append(f"PMID: {article.get('pmid', 'No PMID')}")
+                    if ((export_format == "Full Article Text") or (export_format == "Custom Format" and include_doi)) and article.get('doi'):
+                        chunk.append(f"DOI: {article.get('doi')}")
 
-                            # Optional dependency trees for first N unique sentences
-                            show_trees = st.checkbox("Show dependency trees (first N sentences)", key=f"trees_{i}")
-                            if show_trees and render_dependency_svg is not None:
-                                max_trees = st.number_input("Max trees per article", min_value=1, max_value=10, value=3, step=1, key=f"max_trees_{i}")
-                                rendered = set()
-                                count = 0
-                                for h in hits:
-                                    s = h.get("sentence", "")
-                                    if not s or s in rendered:
-                                        continue
-                                    rendered.add(s)
-                                    svg = render_dependency_svg(s, nlp)
-                                    st.components.v1.html(svg, height=280, scrolling=False)
-                                    count += 1
-                                    if count >= int(max_trees):
-                                        break
+                    if export_format in {"Title + Abstract", "Abstract Only"} or (export_format == "Custom Format" and include_abstract):
+                        chunk.append(f"Abstract: {article.get('abstract', 'No abstract available')}")
+                    elif export_format == "Full Article Text":
+                        if article.get('has_full_text'):
+                            chunk.append(f"Full text: {article.get('full_text', 'No full text available')}")
                         else:
-                            st.info("No keyword hits found in this abstract with the provided analysis keywords.")
+                            chunk.append(f"Abstract: {article.get('abstract', 'No abstract available')} (full text not available)")
+                    elif export_format == "Full Text Only (if available)":
+                        if article.get('has_full_text'):
+                            chunk.append(article.get('full_text', 'No full text available'))
+                        else:
+                            chunk.append(f"Full text not available. Abstract: {article.get('abstract', 'No abstract available')}")
 
-                # Download all hit-level rows across articles
-                def _flatten_hits(rows: List[Dict[str, Any]]) -> pd.DataFrame:
-                    flat: List[Dict[str, Any]] = []
-                    for r in rows:
-                        meta = {k: r.get(k) for k in ["pmid", "title", "year", "journal"]}
-                        for h in r.get("hits", []) or []:
-                            rec = dict(meta)
-                            rec.update({
-                                "keyword": h.get("keyword"),
-                                "classification": h.get("classification"),
-                                "sentence": h.get("sentence"),
-                                "pos": h.get("pos"),
-                                "dep": h.get("dep"),
-                                "sent_index": h.get("sent_index"),
-                                "token_index": h.get("token_index"),
-                            })
-                            flat.append(rec)
-                    return pd.DataFrame(flat)
+                    if (export_format in {"Title + Abstract", "Full Article Text", "Full Text Only (if available)"} or (export_format == "Custom Format" and include_full_text_note)) and article.get('full_text_note'):
+                        chunk.append(article.get('full_text_note'))
 
-                flat_df = _flatten_hits(enriched_rows)
-                if not flat_df.empty:
-                    csv_hits = flat_df.to_csv(index=False)
-                    st.download_button(
-                        label="Download Hit-Level Analysis CSV",
-                        data=csv_hits,
-                        file_name="pubmed_hit_level_analysis.csv",
-                        mime="text/csv",
-                    )
+                    preview_chunks.append("\n".join(chunk))
 
-                # Download Everything ZIP (preview + hit-level)
-                df_enriched = pd.DataFrame(enriched_rows)
-                csv_overview = df_enriched.to_csv(index=False).encode("utf-8")
-                csv_hits_bytes = (flat_df.to_csv(index=False).encode("utf-8") if not flat_df.empty else b"")
-                buf = io.BytesIO()
-                with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-                    zf.writestr("pubmed_overview.csv", csv_overview)
-                    if csv_hits_bytes:
-                        zf.writestr("pubmed_hit_level_analysis.csv", csv_hits_bytes)
-                st.download_button(
-                    label="Download Everything (ZIP)",
-                    data=buf.getvalue(),
-                    file_name="pubmed_analysis_bundle.zip",
-                    mime="application/zip",
-                )
+                st.text_area("Export preview", value=separator.join(preview_chunks), height=320)
 
-        # Download all results (plain)
-        if st.button("Download All Results as CSV"):
-            csv = df.to_csv(index=False)
+            if st.button("Export selected to analysis", type="primary", key="export_to_analysis"):
+                export_chunks: List[str] = []
+                for article in selected_articles:
+                    chunk_lines: List[str] = []
+                    if export_format == "Title + Abstract":
+                        chunk_lines.append(f"Title: {article.get('title', 'No title')}")
+                        chunk_lines.append(f"Authors: {article.get('authors', 'No authors listed')}")
+                        chunk_lines.append(f"Journal: {article.get('journal', 'No journal listed')}")
+                        chunk_lines.append(f"Year: {article.get('year', 'No year listed')}")
+                        chunk_lines.append(f"Abstract: {article.get('abstract', 'No abstract available')}")
+                    elif export_format == "Abstract Only":
+                        chunk_lines.append(article.get('abstract', 'No abstract available'))
+                    elif export_format == "Full Text Only (if available)":
+                        if article.get('has_full_text'):
+                            chunk_lines.append(f"Title: {article.get('title', 'No title')}")
+                            chunk_lines.append(article.get('full_text', 'No full text available'))
+                        else:
+                            chunk_lines.append(f"Title: {article.get('title', 'No title')}")
+                            chunk_lines.append(f"Abstract: {article.get('abstract', 'No abstract available')} [Full text unavailable]")
+                    elif export_format == "Full Article Text":
+                        chunk_lines.append(f"Title: {article.get('title', 'No title')}")
+                        chunk_lines.append(f"Authors: {article.get('authors', 'No authors listed')}")
+                        chunk_lines.append(f"Journal: {article.get('journal', 'No journal listed')}")
+                        chunk_lines.append(f"Year: {article.get('year', 'No year listed')}")
+                        chunk_lines.append(f"PMID: {article.get('pmid', 'No PMID')}")
+                        if article.get('doi'):
+                            chunk_lines.append(f"DOI: {article.get('doi')}")
+                        if article.get('has_full_text'):
+                            chunk_lines.append(f"Full text: {article.get('full_text', 'No full text available')}")
+                        else:
+                            chunk_lines.append(f"Abstract: {article.get('abstract', 'No abstract available')}")
+                        if article.get('full_text_note'):
+                            chunk_lines.append(article.get('full_text_note'))
+                    elif export_format == "Custom Format":
+                        if include_title:
+                            chunk_lines.append(f"Title: {article.get('title', 'No title')}")
+                        if include_authors:
+                            chunk_lines.append(f"Authors: {article.get('authors', 'No authors listed')}")
+                        if include_journal:
+                            chunk_lines.append(f"Journal: {article.get('journal', 'No journal listed')}")
+                        if include_year:
+                            chunk_lines.append(f"Year: {article.get('year', 'No year listed')}")
+                        if include_pmid:
+                            chunk_lines.append(f"PMID: {article.get('pmid', 'No PMID')}")
+                        if include_doi and article.get('doi'):
+                            chunk_lines.append(f"DOI: {article.get('doi')}")
+                        if include_abstract:
+                            chunk_lines.append(f"Abstract: {article.get('abstract', 'No abstract available')}")
+                        if include_full_text_note and article.get('full_text_note'):
+                            chunk_lines.append(article.get('full_text_note'))
+
+                    export_chunks.append("\n".join(chunk_lines))
+
+                export_text = separator.join(export_chunks).strip()
+                st.session_state.selected_articles_for_analysis = selected_articles
+                st.session_state.pubmed_export_text = export_text
+                st.session_state.pubmed_export_format = export_format
+                st.success("Articles exported! Switch to the main Analysis page to work with them.")
+                st.balloons()
+
             st.download_button(
-                label="Download CSV",
-                data=csv,
-                file_name="pubmed_search_results.csv",
-                mime="text/csv"
-            )
-
-with col2:
-    # Selection summary
-    st.subheader("Selected Articles")
-    
-    if st.session_state.selected_pubmed_articles:
-        st.success(f"{len(st.session_state.selected_pubmed_articles)} article(s) selected")
-        
-        # Show selected articles
-        for i, article in enumerate(st.session_state.selected_pubmed_articles, 1):
-            with st.expander(f"{i}. {article.get('title', 'No title')[:50]}...", expanded=False):
-                st.write(f"**PMID:** {article.get('pmid', 'N/A')}")
-                st.write(f"**Authors:** {article.get('authors', 'N/A')}")
-                st.write(f"**Journal:** {article.get('journal', 'N/A')}")
-                if st.button(f"Remove", key=f"remove_{article.get('pmid', i)}"):
-                    st.session_state.selected_pubmed_articles = [
-                        a for a in st.session_state.selected_pubmed_articles 
-                        if a.get('pmid') != article.get('pmid')
-                    ]
-                    st.rerun()
-        
-        # Export selected articles
-        st.divider()
-        st.subheader("Export Options")
-        
-        # Export format selection
-        export_format = st.radio(
-            "Choose export format:",
-            ["Title + Abstract", "Full Article Text", "Abstract Only", "Full Text Only (if available)", "Custom Format"],
-            index=0
-        )
-        
-        # Custom format options
-        if export_format == "Custom Format":
-            include_title = st.checkbox("Include Title", value=True)
-            include_authors = st.checkbox("Include Authors", value=True)
-            include_journal = st.checkbox("Include Journal", value=True)
-            include_year = st.checkbox("Include Year", value=True)
-            include_pmid = st.checkbox("Include PMID", value=False)
-            include_doi = st.checkbox("Include DOI (if available)", value=False)
-            include_abstract = st.checkbox("Include Abstract", value=True)
-            include_full_text_note = st.checkbox("Include Full Text Note", value=True)
-            
-            # Custom separator
-            separator = st.text_input("Section separator:", value="\n\n")
-        
-        # Preview export text
-        if st.button("Preview Export Text"):
-            preview_text = ""
-            
-            for i, article in enumerate(st.session_state.selected_pubmed_articles, 1):
-                if export_format == "Title + Abstract":
-                    article_text = f"Article {i}:\nTitle: {article.get('title', 'No title')}\nAuthors: {article.get('authors', 'No authors listed')}\nJournal: {article.get('journal', 'No journal listed')}\nYear: {article.get('year', 'No year listed')}\nAbstract: {article.get('abstract', 'No abstract available')}"
-                elif export_format == "Abstract Only":
-                    article_text = f"Abstract {i}: {article.get('abstract', 'No abstract available')}"
-                elif export_format == "Full Text Only (if available)":
-                    if article.get('has_full_text'):
-                        article_text = f"Article {i} - Full Text:\nTitle: {article.get('title', 'No title')}\n\n{article.get('full_text', 'No full text available')}"
-                    else:
-                        article_text = f"Article {i}: Full text not available. Abstract: {article.get('abstract', 'No abstract available')}"
-                elif export_format == "Full Article Text":
-                    article_text = f"Article {i}:\n"
-                    article_text += f"Title: {article.get('title', 'No title')}\n"
-                    article_text += f"Authors: {article.get('authors', 'No authors listed')}\n"
-                    article_text += f"Journal: {article.get('journal', 'No journal listed')}\n"
-                    article_text += f"Year: {article.get('year', 'No year listed')}\n"
-                    article_text += f"PMID: {article.get('pmid', 'No PMID')}\n"
-                    if article.get('doi'):
-                        article_text += f"DOI: {article.get('doi')}\n"
-                    if article.get('has_full_text'):
-                        article_text += f"Full Text: {article.get('full_text', 'No full text available')}"
-                    else:
-                        article_text += f"Abstract: {article.get('abstract', 'No abstract available')}"
-                    if article.get('full_text_note'):
-                        article_text += article.get('full_text_note')
-                elif export_format == "Custom Format":
-                    article_text = f"Article {i}:\n"
-                    if include_title:
-                        article_text += f"Title: {article.get('title', 'No title')}\n"
-                    if include_authors:
-                        article_text += f"Authors: {article.get('authors', 'No authors listed')}\n"
-                    if include_journal:
-                        article_text += f"Journal: {article.get('journal', 'No journal listed')}\n"
-                    if include_year:
-                        article_text += f"Year: {article.get('year', 'No year listed')}\n"
-                    if include_pmid:
-                        article_text += f"PMID: {article.get('pmid', 'No PMID')}\n"
-                    if include_doi and article.get('doi'):
-                        article_text += f"DOI: {article.get('doi')}\n"
-                    if include_abstract:
-                        article_text += f"Abstract: {article.get('abstract', 'No abstract available')}"
-                    if include_full_text_note and article.get('full_text_note'):
-                        article_text += article.get('full_text_note')
-                
-                preview_text += article_text + "\n\n"
-            
-            st.text_area("Export Preview:", value=preview_text, height=300)
-        
-        if st.button("Export Selected to Analysis", type="primary"):
-            # Generate export text based on selected format
-            export_text = ""
-            
-            for i, article in enumerate(st.session_state.selected_pubmed_articles, 1):
-                if export_format == "Title + Abstract":
-                    article_text = f"Title: {article.get('title', 'No title')}\nAuthors: {article.get('authors', 'No authors listed')}\nJournal: {article.get('journal', 'No journal listed')}\nYear: {article.get('year', 'No year listed')}\nAbstract: {article.get('abstract', 'No abstract available')}"
-                elif export_format == "Abstract Only":
-                    article_text = article.get('abstract', 'No abstract available')
-                elif export_format == "Full Text Only (if available)":
-                    if article.get('has_full_text'):
-                        article_text = f"Title: {article.get('title', 'No title')}\n\n{article.get('full_text', 'No full text available')}"
-                    else:
-                        article_text = f"Title: {article.get('title', 'No title')}\nAbstract: {article.get('abstract', 'No abstract available')} [Note: Full text not available]"
-                elif export_format == "Full Article Text":
-                    article_text = f"Title: {article.get('title', 'No title')}\n"
-                    article_text += f"Authors: {article.get('authors', 'No authors listed')}\n"
-                    article_text += f"Journal: {article.get('journal', 'No journal listed')}\n"
-                    article_text += f"Year: {article.get('year', 'No year listed')}\n"
-                    article_text += f"PMID: {article.get('pmid', 'No PMID')}\n"
-                    if article.get('doi'):
-                        article_text += f"DOI: {article.get('doi')}\n"
-                    if article.get('has_full_text'):
-                        article_text += f"Full Text: {article.get('full_text', 'No full text available')}"
-                    else:
-                        article_text += f"Abstract: {article.get('abstract', 'No abstract available')}"
-                    if article.get('full_text_note'):
-                        article_text += article.get('full_text_note')
-                elif export_format == "Custom Format":
-                    article_text = ""
-                    if include_title:
-                        article_text += f"Title: {article.get('title', 'No title')}\n"
-                    if include_authors:
-                        article_text += f"Authors: {article.get('authors', 'No authors listed')}\n"
-                    if include_journal:
-                        article_text += f"Journal: {article.get('journal', 'No journal listed')}\n"
-                    if include_year:
-                        article_text += f"Year: {article.get('year', 'No year listed')}\n"
-                    if include_pmid:
-                        article_text += f"PMID: {article.get('pmid', 'No PMID')}\n"
-                    if include_doi and article.get('doi'):
-                        article_text += f"DOI: {article.get('doi')}\n"
-                    if include_abstract:
-                        article_text += f"Abstract: {article.get('abstract', 'No abstract available')}"
-                    if include_full_text_note and article.get('full_text_note'):
-                        article_text += article.get('full_text_note')
-                
-                if export_format == "Custom Format":
-                    export_text += article_text + separator
-                else:
-                    export_text += article_text + "\n\n"
-            
-            # Store selected articles and formatted text for use in main analysis
-            st.session_state.selected_articles_for_analysis = st.session_state.selected_pubmed_articles
-            st.session_state.pubmed_export_text = export_text.strip()
-            st.session_state.pubmed_export_format = export_format
-            
-            st.success("Articles exported! Go to the main Analysis page to process them.")
-            st.balloons()
-        
-        if st.button("Clear All Selections"):
-            st.session_state.selected_pubmed_articles = []
-            st.rerun()
-        
-        # Download selected articles
-        if st.button("Download Selected as CSV"):
-            selected_df = pd.DataFrame(st.session_state.selected_pubmed_articles)
-            csv = selected_df.to_csv(index=False)
-            st.download_button(
-                label="Download Selected CSV",
-                data=csv,
+                label="Download selected articles (CSV)",
+                data=pd.DataFrame(selected_articles).to_csv(index=False),
                 file_name="selected_pubmed_articles.csv",
-                mime="text/csv"
+                mime="text/csv",
+                key="download_selected_csv",
             )
-    else:
-        st.info("No articles selected yet. Search and select articles from the left.")
+
+    # ── Sidebar summary ───────────────────────────────────────────────────────
+    with sidebar_col:
+        st.subheader("Selected articles")
+        if not selected_articles:
+            st.info("No articles selected yet.")
+        else:
+            for i, article in enumerate(selected_articles, 1):
+                title = article.get('title', 'No title')
+                truncated = title if len(title) < 80 else title[:77] + "…"
+                with st.expander(f"{i}. {truncated}", expanded=False):
+                    st.write(f"PMID: {article.get('pmid', 'N/A')}")
+                    st.write(f"Journal: {article.get('journal', 'N/A')}")
+                    st.write(f"Year: {article.get('year', 'N/A')}")
+                    if st.button("Remove", key=f"remove_selected_{article.get('pmid', i)}"):
+                        st.session_state.selected_pubmed_articles = [
+                            a for a in selected_articles if a.get('pmid') != article.get('pmid')
+                        ]
+                        st.rerun()
+
+            if st.button("Clear all selections", key="clear_all_selections"):
+                st.session_state.selected_pubmed_articles = []
+                st.rerun()
+
+else:
+    st.info("Enter search criteria and click 'Search PubMed' to begin.")
 
 # Instructions
 st.divider()

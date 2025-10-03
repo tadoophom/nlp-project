@@ -33,6 +33,8 @@ from nlp_utils import (
 # Feedback database
 from database import init_db, insert_feedback, get_feedback_summary
 
+from ui_theme import apply_theme, render_hero, render_stat_cards, section
+
 # ───────────────────────────────────────────────────────────────────────────────
 # Lazy optional dependencies
 # ───────────────────────────────────────────────────────────────────────────────
@@ -249,6 +251,31 @@ if "_hit_history" not in st.session_state:
 init_db()
 
 st.set_page_config(page_title="Clinical Keyword Polarity", layout="wide")
+apply_theme()
+
+render_hero(
+    "Clinical Keyword Polarity",
+    "",
+    tags=None,
+)
+
+render_stat_cards([
+    {
+        "label": "Session analyses",
+        "value": st.session_state.get("_doc_count", 0),
+        "description": "Documents processed in this Streamlit session",
+    },
+    {
+        "label": "Available models",
+        "value": len(MODELS),
+        "description": "spaCy / SciSpaCy pipelines ready to load",
+    },
+    {
+        "label": "Preset cases",
+        "value": len(PRESET_CASES),
+        "description": "Curated scenarios to explore quickly",
+    },
+])
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Sidebar UI
@@ -377,167 +404,165 @@ def highlight(row):
 # Text source is already obtained in the sidebar above as 'raw_text'
 
 # Create a main content area for text input
-st.header("Document Text")
+with section("1 · Document Text", "Bring in your own clinical note or combine it with imported PubMed articles."):
 
-# Preset selector and text input
-preset = st.selectbox("Preset case", list(PRESET_CASES.keys()), key="global_preset")
+    # Preset selector and text input
+    preset = st.selectbox("Preset case", list(PRESET_CASES.keys()), key="global_preset")
 
-# Button to load preset text
-if st.button("Load preset text", help="Load the sample text for the selected preset case"):
-    st.session_state.preset_text_loaded = PRESET_CASES.get(preset, {}).get("text", "")
+    # Button to load preset text
+    if st.button("Load preset text", help="Load the sample text for the selected preset case"):
+        st.session_state.preset_text_loaded = PRESET_CASES.get(preset, {}).get("text", "")
 
-# Initialize preset text if not in session state
-if "preset_text_loaded" not in st.session_state:
-    st.session_state.preset_text_loaded = ""
+    # Initialize preset text if not in session state
+    if "preset_text_loaded" not in st.session_state:
+        st.session_state.preset_text_loaded = ""
 
-# Get text source early so we can use it for keyword processing
-def get_text() -> str:
-    # Show empty text area by default, unless PubMed articles are available
-    if not st.session_state.get("pubmed_export_text"):
-        return st.text_area(
-            "Document text",
-            st.session_state.preset_text_loaded,
-            height=200,
-            placeholder="Paste your text here, load preset text, or import from PubMed search...",
-            label_visibility="collapsed",
-        )
+    # Get text source early so we can use it for keyword processing
+    def get_text() -> str:
+        # Show empty text area by default, unless PubMed articles are available
+        if not st.session_state.get("pubmed_export_text"):
+            return st.text_area(
+                "Document text",
+                st.session_state.preset_text_loaded,
+                height=220,
+                placeholder="Paste your text here, load preset text, or import from PubMed search...",
+                label_visibility="collapsed",
+            )
+        else:
+            return ""  # Empty string when PubMed articles are available
+
+    raw_text = get_text()
+
+    st.subheader("Text source handling")
+
+    # Check if PubMed articles are included with improved export handling
+    if "pubmed_export_text" in st.session_state and st.session_state.pubmed_export_text:
+        selected_count = len(st.session_state.get("selected_articles_for_analysis", []))
+        export_format = st.session_state.get('pubmed_export_format', 'Title + Abstract')
+
+        st.success(f"{selected_count} PubMed article(s) imported using '{export_format}' format")
+
+        # Options for handling PubMed text
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            include_pubmed = st.checkbox("Include PubMed articles", value=True, key="include_pubmed_main")
+        with col2:
+            if st.button("Preview PubMed Text"):
+                st.session_state.show_pubmed_detail = not st.session_state.get('show_pubmed_detail', False)
+        with col3:
+            if st.button("Refresh"):
+                st.rerun()
+        with col4:
+            if st.button("Clear PubMed", help="Remove imported articles"):
+                for key in ['pubmed_export_text', 'selected_articles_for_analysis', 'pubmed_export_format', 'show_pubmed_detail']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
+
+        # Show detailed PubMed text if requested
+        if st.session_state.get('show_pubmed_detail', False):
+            with st.expander("PubMed Export Details", expanded=True):
+                st.text_area("Imported PubMed text:", value=st.session_state.pubmed_export_text, height=220, disabled=True)
+
+        # Determine what text to display
+        if include_pubmed:
+            if raw_text.strip():  # User has uploaded/entered text
+                display_text = raw_text + "\n\n" + st.session_state.pubmed_export_text
+                text_source = "Combined: Your text + PubMed articles"
+            else:  # Only PubMed articles
+                display_text = st.session_state.pubmed_export_text
+                text_source = "PubMed articles only"
+        else:
+            display_text = raw_text if raw_text.strip() else ""
+            text_source = "Your text only" if raw_text.strip() else "No text selected"
     else:
-        return ""  # Empty string when PubMed articles are available
-
-raw_text = get_text()
-
-st.subheader("Text source handling")
-
-# Check if PubMed articles are included with improved export handling
-if "pubmed_export_text" in st.session_state and st.session_state.pubmed_export_text:
-    selected_count = len(st.session_state.get("selected_articles_for_analysis", []))
-    export_format = st.session_state.get('pubmed_export_format', 'Title + Abstract')
-    
-    st.success(f"{selected_count} PubMed article(s) imported using '{export_format}' format")
-    
-    # Options for handling PubMed text
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        include_pubmed = st.checkbox("Include PubMed articles", value=True, key="include_pubmed_main")
-    with col2:
-        if st.button("Preview PubMed Text"):
-            st.session_state.show_pubmed_detail = not st.session_state.get('show_pubmed_detail', False)
-    with col3:
-        if st.button("Refresh"):
-            st.rerun()
-    with col4:
-        if st.button("Clear PubMed", help="Remove imported articles"):
-            for key in ['pubmed_export_text', 'selected_articles_for_analysis', 'pubmed_export_format', 'show_pubmed_detail']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-    
-    # Show detailed PubMed text if requested
-    if st.session_state.get('show_pubmed_detail', False):
-        with st.expander("PubMed Export Details", expanded=True):
-            st.text_area("Imported PubMed text:", value=st.session_state.pubmed_export_text, height=200, disabled=True)
-    
-    # Determine what text to display
-    if include_pubmed:
-        if raw_text.strip():  # User has uploaded/entered text
-            display_text = raw_text + "\n\n" + st.session_state.pubmed_export_text
-            text_source = "Combined: Your text + PubMed articles"
-        else:  # Only PubMed articles
-            display_text = st.session_state.pubmed_export_text
-            text_source = "PubMed articles only"
-    else:
+        include_pubmed = False
         display_text = raw_text if raw_text.strip() else ""
-        text_source = "Your text only" if raw_text.strip() else "No text selected"
-else:
-    include_pubmed = False
-    display_text = raw_text if raw_text.strip() else ""
-    if raw_text.strip():
-        text_source = "Your uploaded/entered text"
+        if raw_text.strip():
+            text_source = "Your uploaded/entered text"
+        else:
+            text_source = "No text available - please import from PubMed or use preset cases"
+
+    # Show text source info
+    st.info(f"Text source: {text_source}")
+
+    # Set final_text for analysis
+    if display_text:
+        final_text = display_text
     else:
-        text_source = "No text available - please import from PubMed or use preset cases"
-
-# Show text source info
-st.info(f"Text source: {text_source}")
-
-# Set final_text for analysis
-if display_text:
-    final_text = display_text
-else:
-    final_text = raw_text if raw_text.strip() else ""
-
-st.divider()
+        final_text = raw_text if raw_text.strip() else ""
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Keyword Configuration - Main Section
 # ───────────────────────────────────────────────────────────────────────────────
 
-st.header("Keywords to Analyze")
+with section("2 · Keywords to Analyze", "Curate the terminology, colours, and negation rules for this run."):
 
-# Prepare color palette state
-if "_kw_colors" not in st.session_state:
-    st.session_state._kw_colors = {}
+    # Prepare color palette state
+    if "_kw_colors" not in st.session_state:
+        st.session_state._kw_colors = {}
 
-# Use the global preset for default keywords
-current_preset = st.session_state.get("global_preset", "Pneumonia & antibiotics")
-if current_preset and current_preset in PRESET_CASES:
-    default_kw = ", ".join(PRESET_CASES[current_preset]["keywords"])[:200]
-else:
-    default_kw = "procalcitonin"
+    # Use the global preset for default keywords
+    current_preset = st.session_state.get("global_preset", "Pneumonia & antibiotics")
+    if current_preset and current_preset in PRESET_CASES:
+        default_kw = ", ".join(PRESET_CASES[current_preset]["keywords"])[:200]
+    else:
+        default_kw = "procalcitonin"
 
-# URL param support for keywords (?k=fever,cough)
-url_kw = _qp.get("k") if hasattr(_qp, "get") else None
-raw_kw_default = url_kw if url_kw else default_kw
+    # URL param support for keywords (?k=fever,cough)
+    url_kw = _qp.get("k") if hasattr(_qp, "get") else None
+    raw_kw_default = url_kw if url_kw else default_kw
 
-# Main keyword input - prominent and easy to find
-raw_kw = st.text_input(
-    "Enter keywords to search for (comma-separated):",
-    value=raw_kw_default,
-    placeholder="e.g., fever, cough, pneumonia, antibiotic",
-    help="Enter the medical terms you want to analyze in your text"
-)
-
-keywords = [k.strip().lower() for k in raw_kw.split(",") if k.strip()]
-
-if keywords:
-    st.success(f"Will analyze {len(keywords)} keyword(s): {', '.join(keywords)}")
-else:
-    st.warning("Please enter at least one keyword to analyze")
-
-# Advanced keyword options
-with st.expander("Advanced Keyword Options", expanded=False):
-    # Seed distinct default colors per keyword
-    _palette = [
-        "#EF476F", "#06D6A0", "#118AB2", "#FFD166", "#8338EC",
-        "#2EC4B6", "#FF9F1C", "#8AC926", "#FF595E", "#1982C4",
-    ]
-    for i, k in enumerate(sorted(set(keywords))[:16]):
-        st.session_state._kw_colors.setdefault(k, _palette[i % len(_palette)])
-
-    # Show keyword colors if there are keywords
-    if keywords:
-        st.subheader("Keyword Colors")
-        col1, col2 = st.columns(2)
-        for i, k in enumerate(sorted(set(keywords))[:8]):
-            with col1 if i % 2 == 0 else col2:
-                st.session_state._kw_colors[k] = st.color_picker(f"Color for '{k}'", st.session_state._kw_colors.get(k))
-
-    # Custom negation rules
-    st.subheader("Custom Negation Rules")
-    custom_neg = st.text_area(
-        "Custom negation triggers (comma-separated):",
-        placeholder="no, denies, without, negative for",
-        height=60,
-        help="Add custom words that indicate negation in medical text"
+    # Main keyword input - prominent and easy to find
+    raw_kw = st.text_input(
+        "Enter keywords to search for (comma-separated):",
+        value=raw_kw_default,
+        placeholder="e.g., fever, cough, pneumonia, antibiotic",
+        help="Enter the medical terms you want to analyze in your text"
     )
-    _trigs2 = [t.strip() for t in custom_neg.split(",") if t.strip()]
-    st.session_state["custom_neg_triggers"] = _trigs2
-    set_custom_negation_triggers(_trigs2)
 
-if scrub_phi:
-    with st.expander("PHI scrubbing preview", expanded=False):
-        redacted = nlp_scrub_phi(final_text)
-        st.code(redacted)
-    final_text = nlp_scrub_phi(final_text)
+    keywords = [k.strip().lower() for k in raw_kw.split(",") if k.strip()]
+
+    if keywords:
+        st.success(f"Will analyze {len(keywords)} keyword(s): {', '.join(keywords)}")
+    else:
+        st.warning("Please enter at least one keyword to analyze")
+
+    # Advanced keyword options
+    with st.expander("Advanced Keyword Options", expanded=False):
+        # Seed distinct default colors per keyword
+        _palette = [
+            "#EF476F", "#06D6A0", "#118AB2", "#FFD166", "#8338EC",
+            "#2EC4B6", "#FF9F1C", "#8AC926", "#FF595E", "#1982C4",
+        ]
+        for i, k in enumerate(sorted(set(keywords))[:16]):
+            st.session_state._kw_colors.setdefault(k, _palette[i % len(_palette)])
+
+        # Show keyword colors if there are keywords
+        if keywords:
+            st.subheader("Keyword Colors")
+            col1, col2 = st.columns(2)
+            for i, k in enumerate(sorted(set(keywords))[:8]):
+                with col1 if i % 2 == 0 else col2:
+                    st.session_state._kw_colors[k] = st.color_picker(f"Color for '{k}'", st.session_state._kw_colors.get(k))
+
+        # Custom negation rules
+        st.subheader("Custom Negation Rules")
+        custom_neg = st.text_area(
+            "Custom negation triggers (comma-separated):",
+            placeholder="no, denies, without, negative for",
+            height=60,
+            help="Add custom words that indicate negation in medical text"
+        )
+        _trigs2 = [t.strip() for t in custom_neg.split(",") if t.strip()]
+        st.session_state["custom_neg_triggers"] = _trigs2
+        set_custom_negation_triggers(_trigs2)
+
+    if scrub_phi:
+        with st.expander("PHI scrubbing preview", expanded=False):
+            redacted = nlp_scrub_phi(final_text)
+            st.code(redacted)
+        final_text = nlp_scrub_phi(final_text)
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Extract keyword occurrences
@@ -929,7 +954,7 @@ if st.button("Analyze", use_container_width=True):
                 st.components.v1.html(html, height=540, scrolling=False)
 
             col1, col2 = st.columns(2)
-            if col1.button("👍 Correct", key=f"correct_{i}"):
+            if col1.button("Mark correct", key=f"correct_{i}"):
                 insert_feedback(
                     keyword=row["keyword"],
                     sentence=row["sentence"],
@@ -937,7 +962,7 @@ if st.button("Analyze", use_container_width=True):
                     correct_label=True,
                 )
                 st.success("Feedback recorded as correct")
-            if col2.button("👎 Incorrect", key=f"incorrect_{i}"):
+            if col2.button("Mark incorrect", key=f"incorrect_{i}"):
                 insert_feedback(
                     keyword=row["keyword"],
                     sentence=row["sentence"],
@@ -960,7 +985,7 @@ if st.button("Analyze", use_container_width=True):
             for s in miss_sent:
                 st.markdown(s)
     else:
-        st.caption("✓ All keyword sentences classified.")
+        st.caption("All keyword sentences classified.")
 
     # Model disagreement view
     if df["model"].nunique() > 1:
@@ -974,7 +999,7 @@ if st.button("Analyze", use_container_width=True):
         if not disag.empty:
             st.dataframe(disag, use_container_width=True)
         else:
-            st.caption("✓ No disagreements across selected models.")
+            st.caption("No disagreements across selected models.")
         # Compare Models: side-by-side counts and diffs
         st.subheader("Compare models")
         cmp = df.pivot_table(index=["keyword","sentence"], columns="model", values="classification", aggfunc=lambda x: ", ".join(sorted(set(x))))
@@ -1028,14 +1053,14 @@ if st.button("Analyze", use_container_width=True):
             with st.expander(f"Review: {r.keyword} – {r.classification} [{getattr(r,'model','n/a')}]", expanded=False):
                 st.markdown(r.sentence)
                 c1, c2 = st.columns(2)
-                if c1.button("👍 Correct", key=f"rev_ok_{idx}"):
+                if c1.button("Mark correct", key=f"rev_ok_{idx}"):
                     insert_feedback(keyword=r.keyword, sentence=r.sentence, classification=r.classification, correct_label=True)
                     st.success("Recorded")
-                if c2.button("👎 Incorrect", key=f"rev_bad_{idx}"):
+                if c2.button("Mark incorrect", key=f"rev_bad_{idx}"):
                     insert_feedback(keyword=r.keyword, sentence=r.sentence, classification=r.classification, correct_label=False)
                     st.success("Recorded")
     else:
-        st.caption("✓ No items in the review queue.")
+        st.caption("No items in the review queue.")
 
     # Session analytics across all processed documents (updated keys)
     st.subheader("Session Analytics")
