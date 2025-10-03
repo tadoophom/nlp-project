@@ -1,4 +1,3 @@
-1) add AND and OR combination logic: ... AND .. OR in one query
-2) allow export of all found pubmed search and do a sentiment analysis on each with preset list of keywords
-3) make a column like export all analysis for the sentiment that was detected in the abstract 
-
+1) find full text (if available) from pubmed or anything
+2) make slides about current work
+3) 

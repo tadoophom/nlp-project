@@ -61,7 +61,7 @@ Quick start
 PubMed Abstract Retrieval & Dataset Creation
 -------------------------------------------
 
-You can use the PubMed API to search for abstracts using clinical keywords and/or MeSH terms. Retrieved abstracts are saved as a CSV file for downstream analysis and model training.
+You can use the PubMed API to search for abstrac  ts using clinical keywords and/or MeSH terms. Retrieved abstracts are saved as a CSV file for downstream analysis and model training.
 
 **Usage:**
 
@@ -114,15 +114,7 @@ Key options:
 
 The resulting CSV contains one row per (protein, article) pair with PubMed
 metadata, the exact query, and polarity evidence so you can audit candidate
-relationships quickly or feed them into downstream analytics. When the protein
-column contains UniProt accessions (e.g. `P51606`), the pipeline automatically
-looks up gene symbols and preferred names via the UniProt REST API so the
-queries and sentiment checks still hit the literature. (If the lookup fails, it
-falls back to the raw identifier.)
-
-Prefer working in the dashboard? Open the **PubMed Search** page in Streamlit
-and scroll to the **Disease–Protein Relation Corpus** section to run the same
-workflow without leaving the UI.
+relationships quickly or feed them into downstream analytics.
 
 Confusion Matrix for Manual Validation
 -------------------------------------

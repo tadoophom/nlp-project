@@ -5,12 +5,59 @@ Enhanced with full text retrieval where legally available.
 import argparse
 import csv
 import requests
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from xml.etree import ElementTree as ET
 
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 UNPAYWALL_API = "https://api.unpaywall.org/v2/"
 EUROPE_PMC_API = "https://www.ebi.ac.uk/europepmc/webservices/rest/"
+
+
+def _clean_whitespace(text: str) -> str:
+    """Collapse excess whitespace while preserving single spaces."""
+    return " ".join(text.split())
+
+
+def _extract_full_text_from_xml(xml_content: str) -> Optional[str]:
+    """Extract readable text from PMC/Europe PMC full-text XML."""
+
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError:
+        return None
+
+    def _tag_name(element: ET.Element) -> str:
+        return element.tag.split("}")[-1] if "}" in element.tag else element.tag
+
+    parts: List[str] = []
+    seen_titles: set[str] = set()
+    seen_paragraphs: set[str] = set()
+
+    for elem in root.iter():
+        tag = _tag_name(elem)
+        if tag == "title":
+            title_text = (elem.text or "").strip()
+            if title_text:
+                cleaned = _clean_whitespace(title_text)
+                if cleaned and cleaned not in seen_titles:
+                    parts.append(cleaned)
+                    seen_titles.add(cleaned)
+        elif tag == "p":
+            paragraph = " ".join(_clean_whitespace(txt) for txt in elem.itertext())
+            paragraph = _clean_whitespace(paragraph)
+            if paragraph and paragraph not in seen_paragraphs:
+                parts.append(paragraph)
+                seen_paragraphs.add(paragraph)
+
+    if not parts:
+        fallback = _clean_whitespace(" ".join(elem.strip() for elem in root.itertext()))
+        if fallback:
+            parts.append(fallback)
+
+    if not parts:
+        return None
+
+    return "\n\n".join(parts).strip()
 
 
 def get_pmc_id_from_pmid(pmid: str) -> Optional[str]:
@@ -34,11 +81,14 @@ def get_pmc_id_from_pmid(pmid: str) -> Optional[str]:
         return None
 
 
-def try_pmc_full_text(pmid: str) -> Optional[str]:
-    """Try to get full text from PMC if available."""
+def try_pmc_full_text(pmid: str) -> Tuple[Optional[str], Optional[str]]:
+    """Try to get full text from PMC if available.
+
+    Returns the retrieved text and a link to the article on PMC when successful.
+    """
     pmc_id = get_pmc_id_from_pmid(pmid)
     if not pmc_id:
-        return None
+        return None, None
     
     try:
         # Try to get full text XML from PMC
@@ -49,30 +99,13 @@ def try_pmc_full_text(pmid: str) -> Optional[str]:
         }
         r = requests.get(BASE_URL + "efetch.fcgi", params=params)
         r.raise_for_status()
-        
-        # Parse XML and extract text content
-        root = ET.fromstring(r.text)
-        
-        # Extract all text from body sections
-        text_parts = []
-        
-        # Get full body text
-        for section in root.findall(".//sec"):
-            title = section.findtext(".//title")
-            if title:
-                text_parts.append(f"\n{title}\n")
-            
-            # Get all paragraph text
-            for p in section.findall(".//p"):
-                if p.text:
-                    text_parts.append(p.text)
-        
-        if text_parts:
-            return "\n".join(text_parts)
-        
-        return None
+        text = _extract_full_text_from_xml(r.text)
+        if text:
+            url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc_id}/"
+            return text, url
     except Exception:
-        return None
+        return None, None
+    return None, None
 
 
 def try_unpaywall(doi: str, email: str = "research@example.com") -> Optional[str]:
@@ -94,6 +127,51 @@ def try_unpaywall(doi: str, email: str = "research@example.com") -> Optional[str
         return None
     except Exception:
         return None
+
+
+def try_europe_pmc_full_text(pmid: str, doi: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+    """Attempt to retrieve open access full text from Europe PMC.
+
+    Returns the article text and a browser-friendly Europe PMC URL when found.
+    """
+
+    identifiers: List[str] = []
+    if pmid:
+        identifiers.append(pmid)
+    if doi:
+        identifiers.append(f"DOI:{doi}")
+
+    for identifier in identifiers:
+        try:
+            search_resp = requests.get(
+                EUROPE_PMC_API + "search",
+                params={
+                    "query": f"EXT_ID:{identifier}",
+                    "format": "json",
+                    "resultType": "core",
+                },
+                timeout=15,
+            )
+            search_resp.raise_for_status()
+            data = search_resp.json()
+            results = data.get("resultList", {}).get("result", [])
+            for result in results:
+                pmcid = result.get("pmcid")
+                if not pmcid:
+                    continue
+                full_resp = requests.get(
+                    EUROPE_PMC_API + f"{pmcid}/fullTextXML",
+                    params={"format": "xml"},
+                    timeout=20,
+                )
+                full_resp.raise_for_status()
+                text = _extract_full_text_from_xml(full_resp.text)
+                if text:
+                    url = f"https://europepmc.org/article/PMC/{pmcid}"
+                    return text, url
+        except Exception:
+            continue
+    return None, None
 
 
 def search_pubmed(keywords: List[str], mesh_terms: List[str], retmax: int = 100):
@@ -305,20 +383,31 @@ def fetch_abstracts(ids: List[str], try_full_text: bool = False):
         # Try to get full text if requested
         full_text = ""
         full_text_source = ""
+        full_text_url = ""
         if try_full_text and pmid:
             # Try PMC first
-            full_text = try_pmc_full_text(pmid)
-            if full_text:
+            pmc_text, pmc_url = try_pmc_full_text(pmid)
+            if pmc_text:
+                full_text = pmc_text
                 full_text_source = "PMC (PubMed Central)"
-            elif doi:
-                # Try Unpaywall for open access link
-                unpaywall_url = try_unpaywall(doi)
-                if unpaywall_url:
-                    full_text_source = f"Open Access PDF: {unpaywall_url}"
-                    full_text = f"[Full text PDF available at: {unpaywall_url}]"
-        
+                full_text_url = pmc_url or ""
+            else:
+                europe_text, europe_url = try_europe_pmc_full_text(pmid, doi or None)
+                if europe_text:
+                    full_text = europe_text
+                    full_text_source = "Europe PMC (Open Access)"
+                    full_text_url = europe_url or ""
+
+        if try_full_text and not full_text and doi:
+            # Try Unpaywall for open access link
+            unpaywall_url = try_unpaywall(doi)
+            if unpaywall_url:
+                full_text_source = f"Open Access PDF: {unpaywall_url}"
+                full_text = f"[Full text PDF available at: {unpaywall_url}]"
+                full_text_url = unpaywall_url
+
         # Create full text note
-        if full_text and full_text_source == "PMC (PubMed Central)":
+        if full_text and full_text_source in {"PMC (PubMed Central)", "Europe PMC (Open Access)"}:
             full_text_note = f"\n\n[FULL TEXT RETRIEVED from {full_text_source}]"
         elif full_text_source.startswith("Open Access PDF"):
             full_text_note = f"\n\n[FULL TEXT PDF AVAILABLE: {full_text_source.split(': ', 1)[1]}]"
@@ -340,7 +429,8 @@ def fetch_abstracts(ids: List[str], try_full_text: bool = False):
             "full_text": full_text if full_text else "",
             "full_text_source": full_text_source,
             "full_text_note": full_text_note,
-            "has_full_text": bool(full_text and full_text_source == "PMC (PubMed Central)")
+            "full_text_url": full_text_url,
+            "has_full_text": bool(full_text and full_text_source in {"PMC (PubMed Central)", "Europe PMC (Open Access)"})
         })
     return records
 

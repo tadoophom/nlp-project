@@ -547,8 +547,13 @@ with col1:
                     # Show full text availability
                     if row.get('has_full_text'):
                         st.success(f"Full text available from: {row.get('full_text_source', 'Unknown source')}")
+                        if row.get('full_text_url'):
+                            st.markdown(f"[View full text]({row.get('full_text_url')})", unsafe_allow_html=False)
                     elif row.get('full_text_source') and 'PDF' in row.get('full_text_source', ''):
-                        st.info(f"Open access PDF available: {row.get('full_text_source').split(': ', 1)[1] if ': ' in row.get('full_text_source', '') else row.get('full_text_source')}")
+                        pdf_url = row.get('full_text_url') or row.get('full_text_source').split(': ', 1)[1]
+                        st.info(f"Open access PDF available")
+                        if pdf_url:
+                            st.markdown(f"[Open PDF]({pdf_url})", unsafe_allow_html=False)
                     else:
                         st.warning("Only abstract available")
                     
@@ -560,10 +565,9 @@ with col1:
                     
                     # Show preview of full text if available
                     if row.get('full_text') and row.get('has_full_text'):
-                        with st.expander("Full Text Preview", expanded=False):
-                            preview_text = row.get('full_text', '')[:1000] + "..." if len(row.get('full_text', '')) > 1000 else row.get('full_text', '')
-                            highlighted_preview = highlight_terms_in_text(preview_text, search_keywords, search_mesh_terms)
-                            st.markdown(highlighted_preview, unsafe_allow_html=True)
+                        with st.expander("View Full Text", expanded=False):
+                            highlighted_full = highlight_terms_in_text(row.get('full_text', ''), search_keywords, search_mesh_terms)
+                            st.markdown(highlighted_full, unsafe_allow_html=True)
         
         # Batch sentiment analysis over abstracts
         st.divider()
