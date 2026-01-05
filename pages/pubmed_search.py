@@ -1,6 +1,4 @@
-"""
-PubMed Searst.title("PubMed Search")h Page - Dedicated page for searching and selecting PubMed articles
-"""
+"""PubMed Search Page - Dedicated page for searching and selecting PubMed articles."""
 
 import streamlit as st
 import pandas as pd

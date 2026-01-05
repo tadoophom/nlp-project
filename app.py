@@ -386,15 +386,6 @@ def highlight(row):
         rf"<mark style='background:{colour};' title='{tip}'>\\1</mark>",
         row.Sentence, flags=re.I)
 
-# Add comparison of different models
-# Add table of metrics 
-# Add neutral relation / missing relationship
-# More Visualization of results
-# Different colors to describe different sentiments
-# use colors to highlight terms of interest 
-
-
-
 # ───────────────────────────────────────────────────────────────────────────────
 # File ingestion helpers
 # ───────────────────────────────────────────────────────────────────────────────
