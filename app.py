@@ -9,14 +9,12 @@ app.py – Clinical Keyword Polarity Suite v3.2 (FULL SOURCE)
 """
 
 from __future__ import annotations
-from pathlib import Path
 from typing import List
 import io, sys
 import re
 
 import pandas as pd
 import streamlit as st
-import spacy
 from spacy.language import Language
 import plotly.express as px
 
@@ -34,18 +32,6 @@ from nlp_utils import (
 from database import init_db, insert_feedback, get_feedback_summary
 
 from ui_theme import apply_theme, render_hero, render_stat_cards, section
-
-# ───────────────────────────────────────────────────────────────────────────────
-# Lazy optional dependencies
-# ───────────────────────────────────────────────────────────────────────────────
-
-def _imp(name):
-    try:
-        return __import__(name)
-    except ModuleNotFoundError:
-        return None
-
-medspacy    = _imp("medspacy")           # clinical negation rules
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Config – selectable models & default sample
@@ -370,19 +356,8 @@ with st.sidebar:
 @st.cache_resource(hash_funcs={Language: id})
 def get_pipeline(name: str, gpu: bool) -> Language:
     """Wrapper around nlp_utils.load_pipeline with Streamlit caching."""
-    # Streamlit spinner for potentially long model download
     with st.spinner(f"Loading model {name} …"):
         return nlp_load_pipeline(name, gpu=gpu)
-
-COLOUR = {"Positive": "#bef5cb", "Negative": "#ffb3b3", "Neutral": "#ffe5b4"}
-
-def highlight(row):
-    colour = COLOUR[row.Classification]
-    tip = f"{row.Keyword}|{row.POS}|{row.Dep}|{row.Classification}"
-    pat = rf"\\b({re.escape(row.Keyword)})\\b"
-    return re.sub(pat,
-        rf"<mark style='background:{colour};' title='{tip}'>\\1</mark>",
-        row.Sentence, flags=re.I)
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Document input

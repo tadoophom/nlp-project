@@ -4,7 +4,6 @@ Allows manual verification and correction of automated classifications
 """
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import re
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
