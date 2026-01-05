@@ -4,6 +4,7 @@ Allows manual verification and correction of automated classifications
 """
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import re
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
@@ -163,29 +164,37 @@ with section("Review workspace", "Inspect the highlighted context and record man
             sentence_text = current_item.get('sentence', 'No sentence context available')
             keyword = current_item.get('keyword', '')
 
-        # Create highlighted version of the sentence
-        if sentence_text and keyword:
-            escaped_keyword = re.escape(keyword)
-            pattern = re.compile(f'({escaped_keyword})', re.IGNORECASE)
-            highlighted_sentence = pattern.sub(r'<mark style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">\1</mark>', sentence_text)
-            st.markdown(highlighted_sentence, unsafe_allow_html=True)
+            # Create highlighted version of the sentence
+            if sentence_text and keyword:
+                # Case-insensitive highlighting
+                import re
+                # Escape special regex characters in keyword
+                escaped_keyword = re.escape(keyword)
+                # Create pattern for case-insensitive matching
+                pattern = re.compile(f'({escaped_keyword})', re.IGNORECASE)
+                # Replace with highlighted version
+                highlighted_sentence = pattern.sub(r'<mark style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">\1</mark>', sentence_text)
 
-            with st.expander("Plain text version", expanded=False):
+                # Display highlighted sentence
+                st.markdown(highlighted_sentence, unsafe_allow_html=True)
+
+                # Also show plain text version for reference
+                with st.expander("Plain text version", expanded=False):
+                    st.text_area(
+                        "Sentence",
+                        value=sentence_text,
+                        height=100,
+                        disabled=True,
+                        label_visibility="collapsed",
+                    )
+            else:
                 st.text_area(
                     "Sentence",
                     value=sentence_text,
-                    height=100,
+                    height=150,
                     disabled=True,
                     label_visibility="collapsed",
                 )
-        else:
-            st.text_area(
-                "Sentence",
-                value=sentence_text,
-                height=150,
-                disabled=True,
-                label_visibility="collapsed",
-            )
 
             st.write("**Keyword Found:**")
             st.write(f"**'{current_item['keyword']}'** at token position {current_item.get('token_index', 'N/A')}")

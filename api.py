@@ -14,7 +14,7 @@ of the same utilities for interactive exploration.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, status, Depends
 from pydantic import BaseModel, Field

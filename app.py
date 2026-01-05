@@ -9,12 +9,14 @@ app.py – Clinical Keyword Polarity Suite v3.2 (FULL SOURCE)
 """
 
 from __future__ import annotations
+from pathlib import Path
 from typing import List
-import io, sys
-import re
+import io, sys, tempfile
+import re  # used for regex highlighting
 
 import pandas as pd
 import streamlit as st
+import spacy
 from spacy.language import Language
 import plotly.express as px
 
@@ -34,7 +36,20 @@ from database import init_db, insert_feedback, get_feedback_summary
 from ui_theme import apply_theme, render_hero, render_stat_cards, section
 
 # ───────────────────────────────────────────────────────────────────────────────
+# Lazy optional dependencies
+# ───────────────────────────────────────────────────────────────────────────────
+
+def _imp(name):
+    try:
+        return __import__(name)
+    except ModuleNotFoundError:
+        return None
+
+medspacy    = _imp("medspacy")           # clinical negation rules
+
+# ───────────────────────────────────────────────────────────────────────────────
 # Config – selectable models & default sample
+# Extend with multilingual options (Spanish and French) for broader support
 # ───────────────────────────────────────────────────────────────────────────────
 
 MODELS = [
@@ -76,6 +91,7 @@ SAMPLE_TEXT = (
     "or persistence of symptoms."
 )
 
+# Richer clinical presets: text + keyword bundles (moved below SAMPLE_TEXT)
 PRESET_CASES = {
     "Pneumonia & antibiotics": {
         "text": SAMPLE_TEXT,
@@ -356,12 +372,38 @@ with st.sidebar:
 @st.cache_resource(hash_funcs={Language: id})
 def get_pipeline(name: str, gpu: bool) -> Language:
     """Wrapper around nlp_utils.load_pipeline with Streamlit caching."""
+    # Streamlit spinner for potentially long model download
     with st.spinner(f"Loading model {name} …"):
         return nlp_load_pipeline(name, gpu=gpu)
 
+COLOUR = {"Positive": "#bef5cb", "Negative": "#ffb3b3", "Neutral": "#ffe5b4"}
+
+def highlight(row):
+    colour = COLOUR[row.Classification]
+    tip = f"{row.Keyword}|{row.POS}|{row.Dep}|{row.Classification}"
+    pat = rf"\\b({re.escape(row.Keyword)})\\b"
+    return re.sub(pat,
+        rf"<mark style='background:{colour};' title='{tip}'>\\1</mark>",
+        row.Sentence, flags=re.I)
+
+# Add comparison of different models
+# Add table of metrics 
+# Add neutral relation / missing relationship
+# More Visualization of results
+# Different colors to describe different sentiments
+# use colors to highlight terms of interest 
+
+
+
 # ───────────────────────────────────────────────────────────────────────────────
-# Document input
+# File ingestion helpers
 # ───────────────────────────────────────────────────────────────────────────────
+# Obtain text source - moved above analysis section
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Text source is already obtained in the sidebar above as 'raw_text'
+
+# Create a main content area for text input
 with section("1 · Document Text", "Bring in your own clinical note or combine it with imported PubMed articles."):
 
     # Preset selector and text input
