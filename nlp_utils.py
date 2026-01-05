@@ -18,7 +18,7 @@ import warnings
 
 import spacy
 from spacy.language import Language
-from spacy.matcher import PhraseMatcher  # added
+from spacy.matcher import PhraseMatcher
 
 # Optional dependencies
 def _imp(name):

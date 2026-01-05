@@ -11,8 +11,8 @@ app.py – Clinical Keyword Polarity Suite v3.2 (FULL SOURCE)
 from __future__ import annotations
 from pathlib import Path
 from typing import List
-import io, sys, tempfile
-import re  # used for regex highlighting
+import io, sys
+import re
 
 import pandas as pd
 import streamlit as st
@@ -49,7 +49,6 @@ medspacy    = _imp("medspacy")           # clinical negation rules
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Config – selectable models & default sample
-# Extend with multilingual options (Spanish and French) for broader support
 # ───────────────────────────────────────────────────────────────────────────────
 
 MODELS = [
@@ -91,7 +90,6 @@ SAMPLE_TEXT = (
     "or persistence of symptoms."
 )
 
-# Richer clinical presets: text + keyword bundles (moved below SAMPLE_TEXT)
 PRESET_CASES = {
     "Pneumonia & antibiotics": {
         "text": SAMPLE_TEXT,
@@ -387,14 +385,8 @@ def highlight(row):
         row.Sentence, flags=re.I)
 
 # ───────────────────────────────────────────────────────────────────────────────
-# File ingestion helpers
+# Document input
 # ───────────────────────────────────────────────────────────────────────────────
-# Obtain text source - moved above analysis section
-# ───────────────────────────────────────────────────────────────────────────────
-
-# Text source is already obtained in the sidebar above as 'raw_text'
-
-# Create a main content area for text input
 with section("1 · Document Text", "Bring in your own clinical note or combine it with imported PubMed articles."):
 
     # Preset selector and text input

@@ -166,33 +166,27 @@ with section("Review workspace", "Inspect the highlighted context and record man
 
         # Create highlighted version of the sentence
         if sentence_text and keyword:
-            # Escape special regex characters in keyword
-                escaped_keyword = re.escape(keyword)
-                # Create pattern for case-insensitive matching
-                pattern = re.compile(f'({escaped_keyword})', re.IGNORECASE)
-                # Replace with highlighted version
-                highlighted_sentence = pattern.sub(r'<mark style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">\1</mark>', sentence_text)
+            escaped_keyword = re.escape(keyword)
+            pattern = re.compile(f'({escaped_keyword})', re.IGNORECASE)
+            highlighted_sentence = pattern.sub(r'<mark style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">\1</mark>', sentence_text)
+            st.markdown(highlighted_sentence, unsafe_allow_html=True)
 
-                # Display highlighted sentence
-                st.markdown(highlighted_sentence, unsafe_allow_html=True)
-
-                # Also show plain text version for reference
-                with st.expander("Plain text version", expanded=False):
-                    st.text_area(
-                        "Sentence",
-                        value=sentence_text,
-                        height=100,
-                        disabled=True,
-                        label_visibility="collapsed",
-                    )
-            else:
+            with st.expander("Plain text version", expanded=False):
                 st.text_area(
                     "Sentence",
                     value=sentence_text,
-                    height=150,
+                    height=100,
                     disabled=True,
                     label_visibility="collapsed",
                 )
+        else:
+            st.text_area(
+                "Sentence",
+                value=sentence_text,
+                height=150,
+                disabled=True,
+                label_visibility="collapsed",
+            )
 
             st.write("**Keyword Found:**")
             st.write(f"**'{current_item['keyword']}'** at token position {current_item.get('token_index', 'N/A')}")
