@@ -9,14 +9,12 @@ app.py – Clinical Keyword Polarity Suite v3.2 (FULL SOURCE)
 """
 
 from __future__ import annotations
-from pathlib import Path
 from typing import List
-import io, sys, tempfile
-import re  # used for regex highlighting
+import io, sys
+import re
 
 import pandas as pd
 import streamlit as st
-import spacy
 from spacy.language import Language
 import plotly.express as px
 
@@ -36,20 +34,7 @@ from database import init_db, insert_feedback, get_feedback_summary
 from ui_theme import apply_theme, render_hero, render_stat_cards, section
 
 # ───────────────────────────────────────────────────────────────────────────────
-# Lazy optional dependencies
-# ───────────────────────────────────────────────────────────────────────────────
-
-def _imp(name):
-    try:
-        return __import__(name)
-    except ModuleNotFoundError:
-        return None
-
-medspacy    = _imp("medspacy")           # clinical negation rules
-
-# ───────────────────────────────────────────────────────────────────────────────
 # Config – selectable models & default sample
-# Extend with multilingual options (Spanish and French) for broader support
 # ───────────────────────────────────────────────────────────────────────────────
 
 MODELS = [
@@ -277,13 +262,13 @@ render_stat_cards([
     },
 ])
 
+# URL params (for deep linking)
+_qp = st.query_params if hasattr(st, "query_params") else {}
+
 # ───────────────────────────────────────────────────────────────────────────────
 # Sidebar UI
 # ───────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # URL params
-    _qp = st.query_params if hasattr(st, "query_params") else {}
-
     # Import PubMed functions
     try:
         from pubmed_fetch import search_pubmed, fetch_abstracts
@@ -313,40 +298,6 @@ with st.sidebar:
         detect_sections = st.checkbox("Detect sections", value=True)
         show_temporal = st.checkbox("Extract temporal cues", value=True)
         scrub_phi = st.checkbox("Scrub PHI", value=False)
-
-    # Keyword configuration
-    with st.expander("Keyword Configuration", expanded=False):
-        # Prepare color palette state
-        if "_kw_colors" not in st.session_state:
-            st.session_state._kw_colors = {}
-
-        # Use the global preset for default keywords
-        current_preset = st.session_state.get("global_preset", "Pneumonia & antibiotics")
-        if current_preset and current_preset in PRESET_CASES:
-            default_kw = ", ".join(PRESET_CASES[current_preset]["keywords"])[:200]
-        else:
-            default_kw = "procalcitonin"
-
-        # URL param support for keywords (?k=fever,cough)
-        url_kw = _qp.get("k") if hasattr(_qp, "get") else None
-        raw_kw_default = url_kw if url_kw else default_kw
-        raw_kw = st.text_input("Keywords (comma)", raw_kw_default)
-        keywords = [k.strip().lower() for k in raw_kw.split(",") if k.strip()]
-
-        # Seed distinct default colors per keyword
-        _palette = [
-            "#EF476F", "#06D6A0", "#118AB2", "#FFD166", "#8338EC",
-            "#2EC4B6", "#FF9F1C", "#8AC926", "#FF595E", "#1982C4",
-        ]
-        for i, k in enumerate(sorted(set(keywords))[:16]):
-            st.session_state._kw_colors.setdefault(k, _palette[i % len(_palette)])
-
-        # Custom rules
-        st.subheader("Custom Rules")
-        custom_neg = st.text_area("Negation triggers (comma)", placeholder="no, denies, without", height=60)
-        _trigs = [t.strip() for t in custom_neg.split(",") if t.strip()]
-        st.session_state["custom_neg_triggers"] = _trigs
-        set_custom_negation_triggers(_trigs)
 
     # Theme toggle
     st.header("Appearance")
@@ -563,40 +514,6 @@ with section("2 · Keywords to Analyze", "Curate the terminology, colours, and n
             redacted = nlp_scrub_phi(final_text)
             st.code(redacted)
         final_text = nlp_scrub_phi(final_text)
-
-# ───────────────────────────────────────────────────────────────────────────────
-# Extract keyword occurrences
-# ───────────────────────────────────────────────────────────────────────────────
-
-# NOTE: The extraction logic has moved to nlp_utils.extract. This wrapper is
-# retained for backwards compatibility and to capture feedback for analytics.
-def extract(text: str, terms: List[str]):
-    raw_results = nlp_extract(text, terms, nlp)
-    # Record history for analytics
-    st.session_state._hit_history.extend(raw_results)
-    # Translate result keys back to the UI's expected format
-    translated: List[dict] = []
-    for r in raw_results:
-        translated.append(
-            {
-                "Keyword": r.get("keyword"),
-                "Sentence": r.get("sentence"),
-                "POS": r.get("pos"),
-                "Dep": r.get("dep"),
-                "Classification": r.get("classification"),
-                "SentenceIndex": r.get("sent_index"),
-                "TokenIndex": r.get("token_index"),
-            }
-        )
-    return translated
-
-# ───────────────────────────────────────────────────────────────────────────────
-# Patch displaCy SVG with token tooltips
-# ───────────────────────────────────────────────────────────────────────────────
-
-def patched_svg(doc: Language):  # type: ignore[override]
-    """Deprecated wrapper retained for compatibility. Use nlp_utils.render_dependency_svg."""
-    return render_dependency_svg(doc.text, nlp)
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Main
@@ -858,8 +775,7 @@ if st.button("Analyze", use_container_width=True):
                     "uv add \"en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl\""
                 )
             else:
-                doc = nlp(row["sentence"])
-                svg = patched_svg(doc)
+                svg = render_dependency_svg(row["sentence"], nlp)
                 cid = f"dep_view_{i}"
                 html = f"""
 <style>
