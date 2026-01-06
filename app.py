@@ -327,32 +327,9 @@ def get_pipeline(name: str, gpu: bool) -> Language:
     with st.spinner(f"Loading model {name} …"):
         return nlp_load_pipeline(name, gpu=gpu)
 
-COLOUR = {"Positive": "#bef5cb", "Negative": "#ffb3b3", "Neutral": "#ffe5b4"}
-
-def highlight(row):
-    colour = COLOUR[row.Classification]
-    tip = f"{row.Keyword}|{row.POS}|{row.Dep}|{row.Classification}"
-    pat = rf"\\b({re.escape(row.Keyword)})\\b"
-    return re.sub(pat,
-        rf"<mark style='background:{colour};' title='{tip}'>\\1</mark>",
-        row.Sentence, flags=re.I)
-
-# Add comparison of different models
-# Add table of metrics 
-# Add neutral relation / missing relationship
-# More Visualization of results
-# Different colors to describe different sentiments
-# use colors to highlight terms of interest 
-
-
-
 # ───────────────────────────────────────────────────────────────────────────────
 # File ingestion helpers
 # ───────────────────────────────────────────────────────────────────────────────
-# Obtain text source - moved above analysis section
-# ───────────────────────────────────────────────────────────────────────────────
-
-# Text source is already obtained in the sidebar above as 'raw_text'
 
 # Create a main content area for text input
 with section("1 · Document Text", "Bring in your own clinical note or combine it with imported PubMed articles."):

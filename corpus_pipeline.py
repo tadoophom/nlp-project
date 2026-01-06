@@ -11,7 +11,6 @@ import argparse
 import csv
 import math
 import re
-import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path

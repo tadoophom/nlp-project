@@ -166,9 +166,6 @@ with section("Review workspace", "Inspect the highlighted context and record man
 
             # Create highlighted version of the sentence
             if sentence_text and keyword:
-                # Case-insensitive highlighting
-                import re
-                # Escape special regex characters in keyword
                 escaped_keyword = re.escape(keyword)
                 # Create pattern for case-insensitive matching
                 pattern = re.compile(f'({escaped_keyword})', re.IGNORECASE)

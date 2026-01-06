@@ -315,7 +315,6 @@ def fetch_abstracts(ids: List[str], try_full_text: bool = False):
     }
     r = requests.get(BASE_URL + "efetch.fcgi", params=params)
     r.raise_for_status()
-    from xml.etree import ElementTree as ET
     root = ET.fromstring(r.text)
     records = []
     for article in root.findall(".//PubmedArticle"):

@@ -6,8 +6,6 @@ and that the FastAPI service produces consistent results. Run with
 pytest: ``pytest -q``.
 """
 
-import json
-
 from fastapi.testclient import TestClient
 
 import nlp_utils
