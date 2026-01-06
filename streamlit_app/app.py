@@ -12,14 +12,17 @@ from __future__ import annotations
 from typing import List
 import io, sys
 import re
+from pathlib import Path
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
 import streamlit as st
 from spacy.language import Language
 import plotly.express as px
 
-# Import shared NLP utilities
-from nlp_utils import (
+from src.nlp_utils import (
     load_pipeline as nlp_load_pipeline,
     extract as nlp_extract,
     render_dependency_svg,
@@ -27,10 +30,7 @@ from nlp_utils import (
     detect_sections as nlp_detect_sections,
     scrub_phi as nlp_scrub_phi,
 )
-
-# Feedback database
-from database import init_db, insert_feedback, get_feedback_summary
-
+from src.database import init_db, insert_feedback, get_feedback_summary
 from ui_theme import apply_theme, render_hero, render_stat_cards, section
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -271,7 +271,7 @@ _qp = st.query_params if hasattr(st, "query_params") else {}
 with st.sidebar:
     # Import PubMed functions
     try:
-        from pubmed_fetch import search_pubmed, fetch_abstracts
+        from src.pubmed_fetch import search_pubmed, fetch_abstracts
     except ImportError:
         search_pubmed = fetch_abstracts = None
 

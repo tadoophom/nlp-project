@@ -19,7 +19,7 @@ from typing import List
 from fastapi import FastAPI, HTTPException, status, Depends
 from pydantic import BaseModel, Field
 
-from nlp_utils import load_pipeline, extract
+from .nlp_utils import load_pipeline, extract
 
 
 class AnalysisRequest(BaseModel):

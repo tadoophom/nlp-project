@@ -1,6 +1,10 @@
 """
-PubMed Searst.title("PubMed Search")h Page - Dedicated page for searching and selecting PubMed articles
+PubMed Search Page - Dedicated page for searching and selecting PubMed articles
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import streamlit as st
 import pandas as pd
@@ -8,11 +12,10 @@ import re
 import io
 import zipfile
 import tempfile
-from pathlib import Path
 from typing import List, Dict, Any
 
-from corpus_pipeline import load_protein_entries, build_corpus
-from ui_theme import apply_theme, render_hero, render_stat_cards
+from src.corpus_pipeline import load_protein_entries, build_corpus
+from streamlit_app.ui_theme import apply_theme, render_hero, render_stat_cards
 
 
 def _entries_to_dataframe(entries) -> pd.DataFrame:
@@ -30,24 +33,21 @@ def _entries_to_dataframe(entries) -> pd.DataFrame:
         return pd.DataFrame()
     return pd.DataFrame(records)
 
-# NLP utilities for abstract sentiment/polarity analysis
 try:
-    from nlp_utils import load_pipeline, extract as nlp_extract, render_dependency_svg, set_custom_negation_triggers
+    from src.nlp_utils import load_pipeline, extract as nlp_extract, render_dependency_svg, set_custom_negation_triggers
 except Exception:
     load_pipeline = None
     nlp_extract = None
     render_dependency_svg = None
     set_custom_negation_triggers = None
 
-# Feedback DB (optional)
 try:
-    from database import insert_feedback
+    from src.database import insert_feedback
 except Exception:
     insert_feedback = None
 
-# Import PubMed functions
 try:
-    from pubmed_fetch import search_pubmed, search_pubmed_advanced, fetch_abstracts
+    from src.pubmed_fetch import search_pubmed, search_pubmed_advanced, fetch_abstracts
 except ImportError:
     search_pubmed = search_pubmed_advanced = fetch_abstracts = None
 
@@ -975,7 +975,7 @@ uploaded_bytes: bytes | None = None
 uploaded_suffix = ""
 
 if use_sample:
-    sample_path = Path("sample_aktan.xlsx")
+    sample_path = Path(__file__).parent.parent.parent / "data" / "sample_aktan.xlsx"
     if sample_path.exists():
         protein_source_path = sample_path
         try:

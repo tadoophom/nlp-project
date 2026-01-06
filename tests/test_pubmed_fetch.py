@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
-
 from pathlib import Path
 import sys
+from typing import Any, Dict
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
-from pubmed_fetch import EUROPE_PMC_API, fetch_abstracts
+from src.pubmed_fetch import EUROPE_PMC_API, fetch_abstracts
 
 
 class MockResponse:
@@ -110,7 +107,7 @@ def test_fetch_abstracts_uses_europe_pmc_full_text(monkeypatch: pytest.MonkeyPat
             return MockResponse(text=europe_full_text_xml)
         raise AssertionError(f"Unexpected URL called: {url}")
 
-    monkeypatch.setattr("pubmed_fetch.requests.get", mock_get)
+    monkeypatch.setattr("src.pubmed_fetch.requests.get", mock_get)
 
     records = fetch_abstracts(["12345"], try_full_text=True)
 

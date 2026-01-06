@@ -5,11 +5,15 @@ These tests verify that the keyword extractor correctly detects negation
 and that the FastAPI service produces consistent results. Run with
 pytest: ``pytest -q``.
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient
 
-import nlp_utils
-from api import app
+from src import nlp_utils
+from src.api import app
 
 
 def test_extract_positive_and_negative():

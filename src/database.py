@@ -32,7 +32,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
 
 
-DB_PATH = Path(__file__).parent / "feedback.db"
+DB_PATH = Path(__file__).parent.parent / "data" / "feedback.db"
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

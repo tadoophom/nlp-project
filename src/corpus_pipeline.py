@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from zipfile import ZipFile
 
-from nlp_utils import extract, load_pipeline
-from pubmed_fetch import fetch_abstracts, search_pubmed_advanced
+from .nlp_utils import extract, load_pipeline
+from .pubmed_fetch import fetch_abstracts, search_pubmed_advanced
 import requests
 
 

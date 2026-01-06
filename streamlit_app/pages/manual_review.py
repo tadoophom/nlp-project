@@ -2,6 +2,11 @@
 Manual Review Page for Keyword Classifications
 Allows manual verification and correction of automated classifications
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -10,7 +15,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from ui_theme import apply_theme, render_hero, render_stat_cards, section
+from streamlit_app.ui_theme import apply_theme, render_hero, render_stat_cards, section
 
 st.set_page_config(page_title="Manual Review", layout="wide")
 apply_theme()
