@@ -24,6 +24,8 @@ from src.nlp_utils import (
 )
 from src.database import init_db, insert_feedback, get_feedback_summary
 
+st.set_page_config(page_title="Clinical Keyword Polarity", layout="wide")
+
 MODELS = [
     ("en_core_web_sm", "spaCy small"),
     ("en_core_web_md", "spaCy medium"),
@@ -122,9 +124,14 @@ TREATMENT: Given presentation within 4.5 hours and no absolute contraindications
 
 init_db()
 
-st.set_page_config(page_title="Clinical Keyword Polarity", layout="wide")
 st.title("Clinical Keyword Polarity Analyzer")
 st.caption("Detect positive, negative, and neutral mentions of clinical terms")
+
+with st.sidebar:
+    if st.button("Reset", use_container_width=True):
+        for key in ["text", "keywords", "results", "_doc_count", "_hit_history", "_kw_colors"]:
+            st.session_state.pop(key, None)
+        st.rerun()
 
 # Session state
 if "_doc_count" not in st.session_state:
