@@ -24,7 +24,7 @@ from spacy.matcher import PhraseMatcher
 def _imp(name):
     try:
         return __import__(name)
-    except ModuleNotFoundError:
+    except ImportError:
         return None
 
 medspacy = _imp("medspacy")
@@ -38,10 +38,9 @@ def set_custom_negation_triggers(triggers: List[str]) -> None:
     CUSTOM_NEG_TRIGGERS = {t.strip().lower() for t in triggers if t and t.strip()}
 
 try:
-    # Lazy import for dependency tree rendering
-    from spacy import displacy  # type: ignore
-except Exception:
-    displacy = None  # type: ignore
+    from spacy import displacy
+except ImportError:
+    displacy = None
 
 
 @lru_cache(maxsize=8)
@@ -52,10 +51,7 @@ def load_pipeline(name: str, gpu: bool = False, use_context: bool = True) -> Lan
     the requested model is unavailable.
     """
     if gpu:
-        try:
-            spacy.require_gpu()
-        except Exception:
-            pass
+        spacy.require_gpu()
     try:
         nlp = spacy.load(name, disable=["ner"])
     except OSError:
@@ -67,10 +63,7 @@ def load_pipeline(name: str, gpu: bool = False, use_context: bool = True) -> Lan
         if "sentencizer" not in nlp.pipe_names:
             nlp.add_pipe("sentencizer")
     if use_context and medspacy and "context" not in nlp.pipe_names:
-        try:
-            nlp.add_pipe("medspacy_context", config={"rules": "default"}, last=True)  # type: ignore
-        except Exception as exc:
-            warnings.warn(f"Failed to add medspaCy context: {exc}")
+        nlp.add_pipe("medspacy_context", config={"rules": "default"}, last=True)
     return nlp
 
 

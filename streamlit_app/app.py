@@ -249,16 +249,13 @@ if st.button("Analyze", type="primary", use_container_width=True):
     # Synonym expansion
     terms = list(set(keywords))
     if expand_synonyms:
-        try:
-            from nltk.corpus import wordnet as wn
-            expanded = set(terms)
-            for term in keywords:
-                for syn in wn.synsets(term):
-                    for lemma in syn.lemma_names():
-                        expanded.add(lemma.replace("_", " ").lower())
-            terms = list(expanded)
-        except Exception:
-            pass
+        from nltk.corpus import wordnet as wn
+        expanded = set(terms)
+        for term in keywords:
+            for syn in wn.synsets(term):
+                for lemma in syn.lemma_names():
+                    expanded.add(lemma.replace("_", " ").lower())
+        terms = list(expanded)
     
     results = []
     for model in model_choices:
@@ -373,16 +370,12 @@ if st.button("Analyze", type="primary", use_container_width=True):
     else:
         st.success("No low-confidence items")
     
-    # Feedback dashboard
     st.subheader("Feedback Dashboard")
-    try:
-        agg, recent = get_feedback_summary()
-        if agg:
-            agg_df = pd.DataFrame(agg, columns=["keyword", "classification", "correct", "incorrect"])
-            st.dataframe(agg_df)
-        else:
-            st.caption("No feedback recorded yet")
-    except Exception:
+    agg, recent = get_feedback_summary()
+    if agg:
+        agg_df = pd.DataFrame(agg, columns=["keyword", "classification", "correct", "incorrect"])
+        st.dataframe(agg_df)
+    else:
         st.caption("No feedback recorded yet")
     
     # Session analytics
