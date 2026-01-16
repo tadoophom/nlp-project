@@ -1,10 +1,4 @@
-"""Utility module/CLI for building disease-protein corpora with sentiment labels.
-
-This script orchestrates PubMed querying using keyword/MeSH combinations and
-performs sentence-level polarity detection between a disease concept and a
-protein list. Results are exported as a CSV corpus that can drive downstream
-analysis or manual review.
-"""
+"""CLI for building disease-protein sentiment corpora from PubMed."""
 from __future__ import annotations
 
 import argparse
@@ -24,8 +18,6 @@ import requests
 
 @dataclass
 class ProteinEntry:
-    """Representation of a protein row loaded from the user-provided table."""
-
     identifier: str
     score: Optional[float] = None
     raw_row: Optional[Dict[str, str]] = None
@@ -35,7 +27,6 @@ def _format_term(term: str) -> str:
     term = term.strip()
     if not term:
         return term
-    # Always wrap with quotes unless already quoted to preserve multi-word terms
     if not (term.startswith("\"") and term.endswith("\"")):
         term = term.replace("\"", "")
         term = f'"{term}"'
@@ -60,7 +51,7 @@ def compose_query(
     additional_mesh: Sequence[str],
     logic: str,
 ) -> str:
-    """Compose a PubMed raw query string using disease and protein groups."""
+    """Compose a PubMed query string from disease and protein groups."""
 
     disease_group_parts = []
     disease_kw = _build_field_clauses(disease_keywords, "Title/Abstract")
@@ -142,7 +133,6 @@ def _read_xlsx_without_dependencies(path: Path) -> Tuple[List[str], List[List[st
                 if t_el is not None and t_el.text:
                     text = t_el.text
                 else:
-                    # Handle rich text runs if present
                     parts = [node.text or "" for node in si.findall("s:r/s:t", ns)]
                     text = "".join(parts)
                 shared_strings.append(text)
@@ -187,7 +177,7 @@ def load_protein_entries(
     top_n: Optional[int] = None,
     min_score: Optional[float] = None,
 ) -> List[ProteinEntry]:
-    """Load protein identifiers and optional scores from CSV or XLSX."""
+    """Load protein identifiers from CSV or XLSX."""
 
     if not table_path.exists():
         raise FileNotFoundError(f"Protein table not found: {table_path}")
@@ -259,7 +249,6 @@ def load_protein_entries(
                 except ValueError:
                     score = None
         elif len(headers) > 1:
-            # Try to interpret second column as score when not explicitly provided
             secondary_header = headers[1]
             raw_score = row.get(secondary_header, "").strip()
             if raw_score:
@@ -298,10 +287,7 @@ def _fetch_uniprot_metadata(accession: str, *, timeout: float = 10.0) -> Optiona
 
 
 def expand_protein_terms(identifier: str) -> List[str]:
-    """Return a list of synonyms for a protein identifier.
-
-    Falls back to the raw identifier when no metadata is available.
-    """
+    """Return synonyms for a protein identifier from UniProt."""
 
     base = identifier.strip()
     if not base:
@@ -328,10 +314,8 @@ def expand_protein_terms(identifier: str) -> List[str]:
         seen.add(lowered)
         synonyms.append(cleaned)
 
-    # UniProt entry name
     _add(meta.get("uniProtkbId"))
 
-    # Gene symbols and synonyms
     for gene in meta.get("genes", []) or []:
         if isinstance(gene, dict):
             _add(gene.get("geneName", {}).get("value"))
@@ -339,7 +323,6 @@ def expand_protein_terms(identifier: str) -> List[str]:
                 if isinstance(syn, dict):
                     _add(syn.get("value"))
 
-    # Recommended and alternative protein names
     protein_desc = meta.get("proteinDescription", {}) or {}
     rec_name = protein_desc.get("recommendedName", {}) if isinstance(protein_desc, dict) else {}
 
@@ -369,7 +352,7 @@ def detect_relation(
     nlp_model,
     model_name: str,
 ) -> Dict[str, Optional[str]]:
-    """Detect relation polarity between disease and protein mentions within text."""
+    """Detect relation polarity between disease and protein mentions."""
 
     terms = list(disease_terms) + list(protein_terms)
     if not terms:
@@ -423,7 +406,6 @@ def detect_relation(
         }
 
     def pick_priority_bucket() -> Dict[str, List[Dict[str, object]]]:
-        # Negative polarity takes precedence, then positive, else first bucket
         for bucket in overlapping:
             if any(hit.get("classification") == "Negative" for hit in bucket["disease"] + bucket["protein"]):
                 return bucket
@@ -444,7 +426,6 @@ def detect_relation(
 
     sentence = str(selected["disease"][0].get("sentence")) if selected["disease"] else str(selected["protein"][0].get("sentence"))
 
-    # Derive representative polarity/confidence for reporting
     protein_hit = selected["protein"][0] if selected["protein"] else None
     disease_hit = selected["disease"][0] if selected["disease"] else None
 

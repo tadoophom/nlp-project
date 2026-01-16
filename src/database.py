@@ -1,18 +1,4 @@
-"""
-database.py – simple SQLite database for storing annotation feedback.
-
-This module defines a tiny data access layer around a single ``feedback``
-table. Each row records a keyword hit emitted by the NLP pipeline and
-captures whether a user indicated that the polarity classification was
-correct or incorrect via the Streamlit UI. Capturing feedback enables
-active learning workflows where mislabeled examples can be used to
-improve future models.
-
-The database is initialised lazily on first use and persists in the
-``feedback.db`` file in the project root. For production deployments
-SQLAlchemy can be configured to connect to PostgreSQL or another RDBMS
-via environment variables.
-"""
+"""SQLite database for storing annotation feedback."""
 
 from __future__ import annotations
 
@@ -39,7 +25,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-class Feedback(Base):  # type: ignore[misc]
+class Feedback(Base):
     __tablename__ = "feedback"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -51,7 +37,6 @@ class Feedback(Base):  # type: ignore[misc]
 
 
 def init_db() -> None:
-    """Create tables if they do not already exist."""
     Base.metadata.create_all(bind=engine)
 
 
@@ -61,10 +46,6 @@ def insert_feedback(
     classification: str,
     correct_label: bool,
 ) -> None:
-    """
-    Persist a single feedback record. In case of failure, the exception
-    propagates to the caller for Streamlit to handle gracefully.
-    """
     session = SessionLocal()
     try:
         rec = Feedback(
@@ -80,7 +61,6 @@ def insert_feedback(
 
 
 def get_feedback_summary(limit: int = 20):
-    """Return aggregate counts and recent feedback rows for dashboarding."""
     session = SessionLocal()
     try:
         agg = (

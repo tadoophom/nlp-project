@@ -1,7 +1,4 @@
-"""
-Fetch PubMed abstracts using keywords and/or MeSH terms, and save as CSV.
-Enhanced with full text retrieval where legally available.
-"""
+"""Fetch PubMed abstracts and full text where available."""
 import argparse
 import csv
 import requests
@@ -14,13 +11,10 @@ EUROPE_PMC_API = "https://www.ebi.ac.uk/europepmc/webservices/rest/"
 
 
 def _clean_whitespace(text: str) -> str:
-    """Collapse excess whitespace while preserving single spaces."""
     return " ".join(text.split())
 
 
 def _extract_full_text_from_xml(xml_content: str) -> Optional[str]:
-    """Extract readable text from PMC/Europe PMC full-text XML."""
-
     try:
         root = ET.fromstring(xml_content)
     except ET.ParseError:
@@ -61,7 +55,6 @@ def _extract_full_text_from_xml(xml_content: str) -> Optional[str]:
 
 
 def get_pmc_id_from_pmid(pmid: str) -> Optional[str]:
-    """Get PMC ID from PMID if available."""
     try:
         params = {
             "db": "pubmed",
@@ -72,7 +65,6 @@ def get_pmc_id_from_pmid(pmid: str) -> Optional[str]:
         r.raise_for_status()
         
         root = ET.fromstring(r.text)
-        # Look for PMC ID in article IDs
         for article_id in root.findall(".//ArticleId"):
             if article_id.get("IdType") == "pmc":
                 return article_id.text
@@ -82,16 +74,11 @@ def get_pmc_id_from_pmid(pmid: str) -> Optional[str]:
 
 
 def try_pmc_full_text(pmid: str) -> Tuple[Optional[str], Optional[str]]:
-    """Try to get full text from PMC if available.
-
-    Returns the retrieved text and a link to the article on PMC when successful.
-    """
     pmc_id = get_pmc_id_from_pmid(pmid)
     if not pmc_id:
         return None, None
     
     try:
-        # Try to get full text XML from PMC
         params = {
             "db": "pmc",
             "id": pmc_id,
@@ -109,15 +96,13 @@ def try_pmc_full_text(pmid: str) -> Tuple[Optional[str], Optional[str]]:
 
 
 def try_unpaywall(doi: str, email: str = "research@example.com") -> Optional[str]:
-    """Try to find open access PDF URL via Unpaywall."""
     try:
         url = f"{UNPAYWALL_API}{doi}?email={email}"
         r = requests.get(url)
         r.raise_for_status()
         
         data = r.json()
-        if data.get("is_oa"):  # Is open access
-            # Try to get the best open access location
+        if data.get("is_oa"):
             for location in data.get("oa_locations", []):
                 if location.get("url_for_pdf"):
                     return location["url_for_pdf"]
@@ -130,11 +115,6 @@ def try_unpaywall(doi: str, email: str = "research@example.com") -> Optional[str
 
 
 def try_europe_pmc_full_text(pmid: str, doi: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
-    """Attempt to retrieve open access full text from Europe PMC.
-
-    Returns the article text and a browser-friendly Europe PMC URL when found.
-    """
-
     identifiers: List[str] = []
     if pmid:
         identifiers.append(pmid)
@@ -318,12 +298,10 @@ def fetch_abstracts(ids: List[str], try_full_text: bool = False):
     root = ET.fromstring(r.text)
     records = []
     for article in root.findall(".//PubmedArticle"):
-        # Basic article info
         title = article.findtext(".//ArticleTitle", "")
         abstract = article.findtext(".//AbstractText", "")
         pmid = article.findtext(".//PMID", "")
-        
-        # Extract authors
+
         authors = []
         for author in article.findall(".//Author"):
             last_name = author.findtext(".//LastName", "")
@@ -334,36 +312,30 @@ def fetch_abstracts(ids: List[str], try_full_text: bool = False):
                 authors.append(last_name)
         
         authors_str = ", ".join(authors) if authors else "No authors listed"
-        
-        # Extract journal info
+
         journal = article.findtext(".//Journal/Title", "")
         if not journal:
             journal = article.findtext(".//Journal/ISOAbbreviation", "")
         if not journal:
             journal = "No journal listed"
-        
-        # Extract publication year
+
         year = article.findtext(".//PubDate/Year", "")
         if not year:
             year = article.findtext(".//DateCreated/Year", "")
         if not year:
             year = "No year listed"
-        
-        # Extract DOI if available
+
         doi = ""
         for article_id in article.findall(".//ArticleId"):
             if article_id.get("IdType") == "doi":
                 doi = article_id.text
                 break
-        
-        # Extract MeSH terms
+
         mesh = [m.text for m in article.findall(".//MeshHeading/DescriptorName")]
-        
-        # Try to get structured abstract
+
         structured_abstract = ""
         abstract_sections = article.findall(".//Abstract/AbstractText")
         if len(abstract_sections) > 1:
-            # Has structured abstract
             sections = []
             for section in abstract_sections:
                 label = section.get("Label", "")
@@ -373,18 +345,15 @@ def fetch_abstracts(ids: List[str], try_full_text: bool = False):
                 elif text:
                     sections.append(text)
             structured_abstract = " ".join(sections)
-        
-        # Use structured abstract if available, otherwise use regular abstract
+
         final_abstract = structured_abstract if structured_abstract else abstract
         if not final_abstract:
             final_abstract = "No abstract available"
-        
-        # Try to get full text if requested
+
         full_text = ""
         full_text_source = ""
         full_text_url = ""
         if try_full_text and pmid:
-            # Try PMC first
             pmc_text, pmc_url = try_pmc_full_text(pmid)
             if pmc_text:
                 full_text = pmc_text
@@ -398,14 +367,12 @@ def fetch_abstracts(ids: List[str], try_full_text: bool = False):
                     full_text_url = europe_url or ""
 
         if try_full_text and not full_text and doi:
-            # Try Unpaywall for open access link
             unpaywall_url = try_unpaywall(doi)
             if unpaywall_url:
                 full_text_source = f"Open Access PDF: {unpaywall_url}"
                 full_text = f"[Full text PDF available at: {unpaywall_url}]"
                 full_text_url = unpaywall_url
 
-        # Create full text note
         if full_text and full_text_source in {"PMC (PubMed Central)", "Europe PMC (Open Access)"}:
             full_text_note = f"\n\n[FULL TEXT RETRIEVED from {full_text_source}]"
         elif full_text_source.startswith("Open Access PDF"):
@@ -455,8 +422,7 @@ def main():
     ids = search_pubmed(keywords, mesh_terms, args.retmax)
     print(f"Found {len(ids)} articles.")
     records = fetch_abstracts(ids, try_full_text=args.full_text)
-    
-    # Count full text availability
+
     full_text_count = sum(1 for r in records if r.get('has_full_text'))
     print(f"Retrieved {full_text_count} articles with full text out of {len(records)} total articles.")
     

@@ -1,13 +1,4 @@
-"""
-nlp_utils.py – shared NLP utilities for the clinical keyword polarity suite.
-
-This module centralises loading of spaCy pipelines, negation detection,
-keyword extraction and dependency tree rendering. By separating these
-utilities from the Streamlit application, we enable headless API
-services and reuse in CLI contexts without pulling in Streamlit as a
-dependency. Functions in this module are pure and do not depend on
-global state outside of the loaded spaCy pipelines.
-"""
+"""NLP utilities for keyword polarity detection."""
 
 from __future__ import annotations
 
@@ -20,7 +11,6 @@ import spacy
 from spacy.language import Language
 from spacy.matcher import PhraseMatcher
 
-# Optional dependencies
 def _imp(name):
     try:
         return __import__(name)
@@ -29,11 +19,9 @@ def _imp(name):
 
 medspacy = _imp("medspacy")
 
-# Customisable negation triggers (extended via UI)
 CUSTOM_NEG_TRIGGERS = set()
 
 def set_custom_negation_triggers(triggers: List[str]) -> None:
-    """Set additional lower-cased negation cue words/phrases used by heuristics."""
     global CUSTOM_NEG_TRIGGERS
     CUSTOM_NEG_TRIGGERS = {t.strip().lower() for t in triggers if t and t.strip()}
 
@@ -45,11 +33,7 @@ except ImportError:
 
 @lru_cache(maxsize=8)
 def load_pipeline(name: str, gpu: bool = False, use_context: bool = True) -> Language:
-    """
-    Load a spaCy pipeline with optional GPU and medspaCy context integration.
-    Falls back to a lightweight English pipeline with a sentencizer when
-    the requested model is unavailable.
-    """
+    """Load a spaCy pipeline, falling back to blank English if unavailable."""
     if gpu:
         spacy.require_gpu()
     try:
@@ -68,13 +52,7 @@ def load_pipeline(name: str, gpu: bool = False, use_context: bool = True) -> Lan
 
 
 def _is_neg(span) -> bool:
-    """
-    Determine whether a token/phrase is negated.
-
-    Uses medspaCy when available. Otherwise, applies dependency/morph features
-    and lexical-window heuristics for common clinical negations (e.g., "no",
-    "denies", "without", "absence of").
-    """
+    """Determine whether a token/phrase is negated."""
     if hasattr(span._, "is_negated"):
         return bool(span._.is_negated)
 
@@ -87,7 +65,6 @@ def _is_neg(span) -> bool:
             or t.morph.get("PronType") == ["Neg"]
         )
 
-    # Dependency/morph based
     if neg(tok):
         return True
     for ancestor in getattr(tok, "ancestors", []):
@@ -96,32 +73,27 @@ def _is_neg(span) -> bool:
     if any(neg(child) for child in getattr(tok, "children", [])):
         return True
 
-    # Lexical-window heuristics within the sentence (5 tokens to the left)
     sent = span.sent if hasattr(span, "sent") else None
     if sent is not None:
         left_start = max(sent.start, span.start - 6)
         window_tokens = [t.text.lower() for t in span.doc[left_start:span.start]]
         window_text = " ".join(window_tokens)
         lex_triggers = {"no", "denies", "denied", "without", "lacks", "lack", "negative for", "absence of"} | CUSTOM_NEG_TRIGGERS
-        # Find index of latest trigger token (single-token triggers only) within the window
         trigger_indices = [i for i, tok in enumerate(window_tokens) if tok in lex_triggers]
         phrase_trigger_set = set(["negative for", "absence of"]) | CUSTOM_NEG_TRIGGERS
         phrase_trigger = any(phr in window_text for phr in phrase_trigger_set)
         if trigger_indices or phrase_trigger:
             last_trigger_idx = trigger_indices[-1] if trigger_indices else 0
-            # Blockers that break negation scope (coordination or positive assertions)
             blockers = {"but", "however", "yet", "although", "though", "except", "has", "have", "had", "is", "are", "was", "were"}
-            # If any blocker appears after the trigger, do not apply negation
             if any(tok in blockers for tok in window_tokens[last_trigger_idx + 1 :]):
                 return False
-            # Require proximity: trigger within 3 tokens of the target
             if (len(window_tokens) - 1) - last_trigger_idx <= 3 or phrase_trigger:
                 return True
     return False
 
 
 def classify_span(span):
-    """Return Positive / Negative / Neutral using ConText if present, else heuristics."""
+    """Return Positive / Negative / Neutral for a span."""
     if hasattr(span._, "is_negated") and span._.is_negated:
         return "Negative"
     if (
@@ -136,14 +108,12 @@ def classify_span(span):
     return "Positive"
 
 def _confidence_for(span) -> float:
-    """Naive confidence score in [0.5, 1.0] based on available signals."""
-    # Start moderate, boost when ConText is present, penalize when negated heuristically
+    """Confidence score in [0.5, 1.0] based on available signals."""
     base = 0.75
     if hasattr(span._, "is_negated"):
         base += 0.1
         if span._.is_negated:
             base -= 0.2
-    # proximity to negation cue
     sent = getattr(span, "sent", None)
     if sent is not None:
         left = span.start - max(sent.start, span.start - 4)
@@ -151,12 +121,7 @@ def _confidence_for(span) -> float:
     return float(max(0.5, min(1.0, base)))
 
 def extract(text: str, terms: List[str], nlp: Language, **kwargs) -> List[Dict[str, Any]]:
-    """
-    Extract keyword occurrences (single- and multi-word) and contextual metadata.
-
-    Returns lowercase keys suitable for API/tests. When ``model_name`` is passed
-    in ``kwargs``, a lowercase ``model`` field is included for UI use.
-    """
+    """Extract keyword occurrences and contextual metadata."""
     doc = nlp(text)
     normalized_terms = [t.strip().lower() for t in terms if t and t.strip()]
     if not normalized_terms:
@@ -166,16 +131,14 @@ def extract(text: str, terms: List[str], nlp: Language, **kwargs) -> List[Dict[s
     phrase_terms = [t for t in normalized_terms if " " in t]
 
     hits: List[Dict[str, Any]] = []
-    seen = set()  # dedupe by (sent_index, token_index, keyword)
+    seen = set()
 
-    # Phrase matches (multi-word)
     if phrase_terms:
         pm = PhraseMatcher(nlp.vocab, attr="LOWER")
         pm.add("KW", [nlp.make_doc(t) for t in phrase_terms])
         for match_id, start, end in pm(doc):
             span = doc[start:end]
             sent = span.sent
-            # compute sentence index
             sent_index = 0
             for i, s in enumerate(doc.sents):
                 if span.start >= s.start and span.start < s.end:
@@ -202,7 +165,6 @@ def extract(text: str, terms: List[str], nlp: Language, **kwargs) -> List[Dict[s
                 rec["model"] = str(model_name)
             hits.append(rec)
 
-    # Single-token matches (lemma-based)
     if single_terms:
         for sent_index, sent in enumerate(doc.sents):
             for token in sent:
@@ -235,17 +197,13 @@ def extract(text: str, terms: List[str], nlp: Language, **kwargs) -> List[Dict[s
 
 
 def render_dependency_svg(sentence: str, nlp: Language) -> str:
-    """
-    Render dependency tree as SVG. If unavailable (no parser), degrade gracefully
-    by returning a simple HTML-wrapped sentence with token tooltips omitted.
-    """
+    """Render dependency tree as SVG."""
     if displacy is None:
         return f"<pre>{sentence}</pre>"
     try:
         doc = nlp(sentence)
         svg = displacy.render(doc, style="dep", options={"distance": 110})
     except Exception:
-        # Parser not available or rendering failed
         return f"<pre>{sentence}</pre>"
 
     def _add_title(match: re.Match) -> str:
@@ -257,9 +215,7 @@ def render_dependency_svg(sentence: str, nlp: Language) -> str:
 
 
 def detect_sections(text: str) -> List[Dict[str, Any]]:
-    """Detect common clinical sections using lightweight regex heuristics.
-    Returns a list of dicts: {start, title} sorted by start.
-    """
+    """Detect common clinical sections using regex. Returns list of {start, title}."""
     patterns = [
         ("Chief Complaint", r"^(?:cc|chief complaint)\s*[:\-]", re.I | re.M),
         ("HPI", r"^(?:hpi|history of present illness)\s*[:\-]", re.I | re.M),
@@ -280,19 +236,12 @@ def detect_sections(text: str) -> List[Dict[str, Any]]:
 
 
 def scrub_phi(text: str) -> str:
-    """Redact likely PHI: emails, phones, dates, MRNs, and person-like names.
-    Conservative to avoid over-scrubbing. Pure regex approach.
-    """
+    """Redact likely PHI: emails, phones, dates, MRNs, and names."""
     t = text
-    # Emails
     t = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[EMAIL]", t)
-    # Phones
     t = re.sub(r"(?:(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})", "[PHONE]", t)
-    # Dates (simple)
     t = re.sub(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", "[DATE]", t)
     t = re.sub(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4}\b", "[DATE]", t, flags=re.I)
-    # MRN/ID-like numbers
     t = re.sub(r"\b(?:MRN|ID)[:#\s]*\d{5,}\b", "[ID]", t, flags=re.I)
-    # Person-like names (two+ Capitalized tokens)
     t = re.sub(r"\b([A-Z][a-z]+\s+){1,3}[A-Z][a-z]+\b", "[NAME]", t)
     return t
