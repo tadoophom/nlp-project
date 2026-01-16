@@ -20,3 +20,8 @@ research_project.egg-info/
 
 # App-specific: artifacts not meant for source control
 feedback.db
+
+*.csv
+*.png
+*.pdf
+*.txt
