@@ -1,9 +1,9 @@
 """
 Generate a table of removed proteins with their functions and rationale.
 
-This script compares baseline CaseOLAP rankings with filtered rankings to identify
-proteins that were removed during sentiment filtering, then queries UniProt to
-retrieve protein names and functions.
+Compares baseline CaseOLAP rankings with filtered rankings to identify
+proteins removed during sentiment filtering, then queries UniProt for
+protein names and functions.
 
 Usage:
     python scripts/generate_removed_proteins_table.py
@@ -13,11 +13,10 @@ from __future__ import annotations
 import csv
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import requests
 
-# Paths
 DATA_DIR = Path(__file__).parent.parent / "data"
 PLOTS_DIR = DATA_DIR / "plots"
 BASELINE_CSV = PLOTS_DIR / "baseline_rankings.csv"
@@ -28,7 +27,6 @@ OUTPUT_MD = PLOTS_DIR / "removed_proteins_table.md"
 
 
 def load_proteins_from_csv(path: Path, limit: int = 100) -> List[Tuple[str, float]]:
-    """Load protein IDs and scores from a rankings CSV."""
     proteins = []
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -42,7 +40,6 @@ def load_proteins_from_csv(path: Path, limit: int = 100) -> List[Tuple[str, floa
 
 
 def load_sentiment_summary(path: Path) -> Dict[str, Dict]:
-    """Load sentiment summary data for each protein."""
     summary = {}
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -59,14 +56,12 @@ def load_sentiment_summary(path: Path) -> Dict[str, Dict]:
 
 
 def fetch_uniprot_info(protein_id: str) -> Dict[str, str]:
-    """Fetch protein name and function from UniProt REST API."""
     url = f"https://rest.uniprot.org/uniprotkb/{protein_id}.json"
     try:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         
-        # Extract protein name
         protein_name = "Unknown"
         if "proteinDescription" in data:
             desc = data["proteinDescription"]
@@ -75,14 +70,12 @@ def fetch_uniprot_info(protein_id: str) -> Dict[str, str]:
             elif "submissionNames" in desc and desc["submissionNames"]:
                 protein_name = desc["submissionNames"][0].get("fullName", {}).get("value", "Unknown")
         
-        # Extract gene name
         gene_name = ""
         if "genes" in data and data["genes"]:
             gene_data = data["genes"][0]
             if "geneName" in gene_data:
                 gene_name = gene_data["geneName"].get("value", "")
         
-        # Extract function from comments
         function = "No function annotation available"
         if "comments" in data:
             for comment in data["comments"]:
@@ -106,7 +99,6 @@ def fetch_uniprot_info(protein_id: str) -> Dict[str, str]:
 
 
 def determine_removal_rationale(sentiment_data: Dict) -> str:
-    """Determine why a protein was removed based on sentiment analysis."""
     if not sentiment_data:
         return "Not analyzed in sentiment corpus"
     
@@ -127,30 +119,25 @@ def determine_removal_rationale(sentiment_data: Dict) -> str:
 
 
 def main():
-    print("Loading baseline and filtered rankings...")
+    print("Loading rankings...")
     
-    # Load top 100 from baseline
     baseline = load_proteins_from_csv(BASELINE_CSV, limit=100)
     baseline_proteins = {p[0]: p[1] for p in baseline}
     
-    # Load filtered proteins
     filtered = load_proteins_from_csv(FILTERED_CSV, limit=100)
     filtered_proteins = set(p[0] for p in filtered)
     
-    # Load sentiment summary
     sentiment_summary = {}
     if SENTIMENT_CSV.exists():
         sentiment_summary = load_sentiment_summary(SENTIMENT_CSV)
     
-    # Find removed proteins (in baseline top 100 but not in filtered)
     removed = []
     for protein_id, score in baseline:
         if protein_id not in filtered_proteins:
             removed.append((protein_id, score))
     
-    print(f"Found {len(removed)} removed proteins from top-100 baseline")
+    print(f"Found {len(removed)} removed proteins")
     
-    # Fetch UniProt info for each removed protein
     results = []
     for i, (protein_id, score) in enumerate(removed):
         print(f"Fetching info for {protein_id} ({i+1}/{len(removed)})...")
@@ -171,14 +158,11 @@ def main():
             "function": uniprot_info["function"][:200] + "..." if len(uniprot_info["function"]) > 200 else uniprot_info["function"],
         })
         
-        # Rate limiting to be polite to UniProt API
         time.sleep(0.2)
     
-    # Sort by CaseOLAP score descending
     results.sort(key=lambda x: x["caseolap_score"], reverse=True)
     
-    # Write CSV output
-    print(f"\nWriting CSV to {OUTPUT_CSV}...")
+    print(f"Writing {OUTPUT_CSV}...")
     fieldnames = [
         "uniprot_id", "gene_name", "protein_name", "caseolap_score",
         "positive_mentions", "negative_mentions", "no_comention",
@@ -189,8 +173,7 @@ def main():
         writer.writeheader()
         writer.writerows(results)
     
-    # Write Markdown table
-    print(f"Writing Markdown table to {OUTPUT_MD}...")
+    print(f"Writing {OUTPUT_MD}...")
     with open(OUTPUT_MD, "w", encoding="utf-8") as f:
         f.write("# Removed Proteins Table\n\n")
         f.write("This table lists proteins that were excluded from the filtered rankings after sentiment analysis.\n")
@@ -200,7 +183,6 @@ def main():
         f.write(f"- **Primary reason**: Neutral-only mentions (no clear positive/negative association with HFpEF)\n\n")
         f.write("## Removed Proteins Details\n\n")
         
-        # Markdown table header
         f.write("| UniProt ID | Gene | Protein Name | CaseOLAP Score | Pos | Neg | Rationale |\n")
         f.write("|------------|------|--------------|----------------|-----|-----|------------|\n")
         
@@ -218,10 +200,8 @@ def main():
             f.write(f"- **Removal Rationale**: {r['removal_rationale']}\n")
             f.write(f"- **Function**: {r['function']}\n\n")
     
-    print("Done!")
-    print(f"\nGenerated files:")
-    print(f"  - {OUTPUT_CSV}")
-    print(f"  - {OUTPUT_MD}")
+    print(f"Generated: {OUTPUT_CSV}")
+    print(f"Generated: {OUTPUT_MD}")
 
 
 if __name__ == "__main__":
