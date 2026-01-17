@@ -24,6 +24,18 @@ from src.nlp_utils import (
 )
 from src.database import init_db, insert_feedback, get_feedback_summary
 
+BERT_MODEL_PATH = Path(__file__).parent.parent / "models" / "pubmedbert-hfpef" / "final"
+BERT_AVAILABLE = BERT_MODEL_PATH.exists()
+
+
+@st.cache_resource
+def get_bert_classifier():
+    """Load BERT classifier (cached)."""
+    if not BERT_AVAILABLE:
+        return None
+    from src.bert_classifier import PubMedBERTClassifier
+    return PubMedBERTClassifier(model_path=str(BERT_MODEL_PATH))
+
 st.set_page_config(page_title="Clinical Keyword Polarity", layout="wide")
 
 MODELS = [
@@ -185,14 +197,14 @@ keywords = [k.strip().lower() for k in keywords_input.split(",") if k.strip()]
 
 # Settings
 st.subheader("Settings")
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     available_models = [m for m, _ in MODELS]
     url_model = _qp.get("m", "").split(",") if _qp.get("m") else []
     default_models = [m for m in url_model if m in available_models] or ["en_core_web_sm"]
     model_choices = st.multiselect(
-        "Models",
+        "NLP Models",
         available_models,
         default=default_models,
         format_func=lambda x: dict(MODELS).get(x, x),
@@ -200,6 +212,18 @@ with col1:
     )
 
 with col2:
+    classifier_options = ["Rule-based (spaCy)"]
+    if BERT_AVAILABLE:
+        classifier_options.extend(["PubMedBERT", "Both (compare)"])
+    classifier_method = st.radio(
+        "Classification Method",
+        classifier_options,
+        help="PubMedBERT provides better accuracy for biomedical text"
+    )
+    if not BERT_AVAILABLE:
+        st.caption("Train BERT model to enable")
+
+with col3:
     c1, c2 = st.columns(2)
     with c1:
         expand_synonyms = st.checkbox("Expand synonyms", help="WordNet expansion")
@@ -268,6 +292,32 @@ if st.button("Analyze", type="primary", use_container_width=True):
         st.stop()
     
     df = pd.DataFrame(results)
+    
+    # Apply BERT classification if selected
+    use_bert = classifier_method in ["PubMedBERT", "Both (compare)"]
+    use_both = classifier_method == "Both (compare)"
+    
+    if use_bert and BERT_AVAILABLE:
+        bert_classifier = get_bert_classifier()
+        if bert_classifier:
+            with st.spinner("Running PubMedBERT classification..."):
+                bert_results = []
+                for sent in df["sentence"].unique():
+                    label, conf = bert_classifier.predict(sent)
+                    label_map = {"positive": "Positive", "negative": "Negative", "no_association": "Neutral"}
+                    bert_results.append({"sentence": sent, "bert_label": label_map.get(label, "Neutral"), "bert_conf": conf})
+                bert_df = pd.DataFrame(bert_results)
+                df = df.merge(bert_df, on="sentence", how="left")
+                
+                if use_both:
+                    df["rule_classification"] = df["classification"]
+                    df["rule_confidence"] = df["confidence"]
+                    df["classification"] = df["bert_label"]
+                    df["confidence"] = df["bert_conf"]
+                else:
+                    df["classification"] = df["bert_label"]
+                    df["confidence"] = df["bert_conf"]
+    
     st.session_state._doc_count += 1
     st.session_state._hit_history.extend(results)
     st.session_state.results = df
@@ -308,11 +358,43 @@ if st.button("Analyze", type="primary", use_container_width=True):
     st.divider()
     st.subheader("Results")
     
+    # Show classifier method
+    method_label = "PubMedBERT" if use_bert and not use_both else ("Both" if use_both else "Rule-based")
+    st.caption(f"Classification method: **{method_label}**")
+    
     # Metrics
     cols = st.columns(4)
     cols[0].metric("Total", len(df))
     for i, cls in enumerate(["Positive", "Negative", "Neutral"]):
         cols[i + 1].metric(cls, len(df[df["classification"] == cls]))
+    
+    # Comparison metrics when using both
+    if use_both and "rule_classification" in df.columns:
+        st.subheader("Method Comparison")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Rule-based**")
+            for cls in ["Positive", "Negative", "Neutral"]:
+                count = len(df[df["rule_classification"] == cls])
+                st.caption(f"{cls}: {count}")
+        with col2:
+            st.markdown("**PubMedBERT**")
+            for cls in ["Positive", "Negative", "Neutral"]:
+                count = len(df[df["classification"] == cls])
+                st.caption(f"{cls}: {count}")
+        
+        # Agreement rate
+        agreement = (df["rule_classification"] == df["classification"]).mean()
+        st.metric("Agreement Rate", f"{agreement:.1%}")
+        
+        # Disagreements
+        disagreements = df[df["rule_classification"] != df["classification"]]
+        if len(disagreements) > 0:
+            with st.expander(f"View {len(disagreements)} disagreements"):
+                for _, row in disagreements.iterrows():
+                    st.markdown(f"**{row['keyword']}**: Rule={row['rule_classification']} vs BERT={row['classification']}")
+                    st.caption(row["sentence"][:200] + "..." if len(row["sentence"]) > 200 else row["sentence"])
+                    st.divider()
     
     # Chart
     pivot = df.pivot_table(
@@ -343,9 +425,26 @@ if st.button("Analyze", type="primary", use_container_width=True):
     
     st.subheader("Occurrences")
     for idx, row in df.iterrows():
-        with st.expander(f"{row['keyword']} — {row['classification']} ({row['model']})"):
+        # Show comparison in title if both methods used
+        if use_both and "rule_classification" in df.columns:
+            if row["rule_classification"] != row["classification"]:
+                title = f"{row['keyword']} — Rule: {row['rule_classification']} vs BERT: {row['classification']} ({row['model']})"
+            else:
+                title = f"{row['keyword']} — {row['classification']} (both agree) ({row['model']})"
+        else:
+            title = f"{row['keyword']} — {row['classification']} ({row['model']})"
+        
+        with st.expander(title):
             st.markdown(highlight(row), unsafe_allow_html=True)
-            st.caption(f"Confidence: {row['confidence']:.2f}")
+            
+            # Show confidence for both if comparing
+            if use_both and "rule_classification" in df.columns:
+                c1, c2 = st.columns(2)
+                c1.caption(f"Rule-based: {row['rule_classification']} ({row['rule_confidence']:.2f})")
+                c2.caption(f"PubMedBERT: {row['classification']} ({row['confidence']:.2f})")
+            else:
+                st.caption(f"Confidence: {row['confidence']:.2f}")
+            
             if show_sections:
                 st.caption(f"Section: {row.get('section', 'N/A')}")
             if show_codes and row.get("code"):
@@ -354,10 +453,10 @@ if st.button("Analyze", type="primary", use_container_width=True):
                 st.caption(f"Temporal: {row['temporal']}")
             
             c1, c2 = st.columns(2)
-            if c1.button("✓ Correct", key=f"ok_{idx}"):
+            if c1.button("Correct", key=f"ok_{idx}"):
                 insert_feedback(row["keyword"], row["sentence"], row["classification"], True)
                 st.toast("Recorded")
-            if c2.button("✗ Wrong", key=f"bad_{idx}"):
+            if c2.button("Wrong", key=f"bad_{idx}"):
                 insert_feedback(row["keyword"], row["sentence"], row["classification"], False)
                 st.toast("Recorded")
     
