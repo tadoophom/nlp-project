@@ -31,3 +31,7 @@ models/
 
 # Generated data
 data/*.json
+
+# Output directories
+plots/
+deliverable_email/
