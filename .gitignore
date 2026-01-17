@@ -25,3 +25,9 @@ feedback.db
 *.png
 *.pdf
 *.txt
+
+# Model artifacts
+models/
+
+# Generated data
+data/*.json

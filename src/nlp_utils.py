@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 import re
 import warnings
 
 import spacy
 from spacy.language import Language
 from spacy.matcher import PhraseMatcher
+
+_bert_classifier = None
 
 def _imp(name):
     try:
@@ -245,3 +247,43 @@ def scrub_phi(text: str) -> str:
     t = re.sub(r"\b(?:MRN|ID)[:#\s]*\d{5,}\b", "[ID]", t, flags=re.I)
     t = re.sub(r"\b([A-Z][a-z]+\s+){1,3}[A-Z][a-z]+\b", "[NAME]", t)
     return t
+
+
+def load_bert_classifier(model_path: Optional[str] = None) -> "PubMedBERTClassifier":
+    """Load or return cached BERT classifier."""
+    global _bert_classifier
+    if _bert_classifier is None:
+        from .bert_classifier import PubMedBERTClassifier
+        _bert_classifier = PubMedBERTClassifier(model_path=model_path)
+    return _bert_classifier
+
+
+def classify_with_bert(sentence: str, model_path: Optional[str] = None) -> Tuple[str, float]:
+    """Classify a sentence using PubMedBERT. Returns (label, confidence)."""
+    classifier = load_bert_classifier(model_path)
+    label, conf = classifier.predict(sentence)
+    # Map BERT labels to existing pipeline labels
+    label_map = {"positive": "Positive", "negative": "Negative", "no_association": "Neutral"}
+    return label_map.get(label, "Neutral"), conf
+
+
+def classify_span_hybrid(
+    span,
+    sentence: str,
+    model_path: Optional[str] = None,
+    bert_threshold: float = 0.7,
+) -> Tuple[str, float, str]:
+    """Hybrid classification using rule-based + BERT.
+    
+    Returns (classification, confidence, method).
+    Uses BERT when confidence is high, falls back to rules otherwise.
+    """
+    bert_label, bert_conf = classify_with_bert(sentence, model_path)
+    
+    if bert_conf >= bert_threshold:
+        return bert_label, bert_conf, "bert"
+    
+    # Fall back to rule-based
+    rule_label = classify_span(span)
+    rule_conf = _confidence_for(span)
+    return rule_label, rule_conf, "rule"
