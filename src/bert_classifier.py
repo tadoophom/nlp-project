@@ -14,6 +14,20 @@ ID2LABEL: Dict[int, str] = {v: k for k, v in LABEL2ID.items()}
 
 MODEL_NAME = "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 
+# Available biomedical models (ranked by typical performance)
+BIOMEDICAL_MODELS = {
+    "pubmedbert": "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext",
+    "biobert": "dmis-lab/biobert-v1.1",
+    "scibert": "allenai/scibert_scivocab_uncased",
+    "biomedbert": "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract",
+    "biomedbert-large": "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract",
+}
+
+
+def get_model_name(model_key: str) -> str:
+    """Resolve model key to full HuggingFace model name."""
+    return BIOMEDICAL_MODELS.get(model_key, model_key)
+
 
 class RelationDataset(Dataset):
     """Dataset for protein-disease relation classification."""
