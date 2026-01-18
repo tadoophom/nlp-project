@@ -12,7 +12,7 @@ RelationLabel = Literal["positive", "negative", "no_association"]
 LABEL2ID: Dict[str, int] = {"positive": 0, "negative": 1, "no_association": 2}
 ID2LABEL: Dict[int, str] = {v: k for k, v in LABEL2ID.items()}
 
-MODEL_NAME = "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+MODEL_NAME = "allenai/scibert_scivocab_uncased"  # Best performer in CV comparison
 
 # Available biomedical models (ranked by typical performance)
 BIOMEDICAL_MODELS = {
