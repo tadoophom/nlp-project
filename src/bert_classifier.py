@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
@@ -11,6 +12,17 @@ from torch.utils.data import Dataset
 RelationLabel = Literal["positive", "negative", "no_association"]
 LABEL2ID: Dict[str, int] = {"positive": 0, "negative": 1, "no_association": 2}
 ID2LABEL: Dict[int, str] = {v: k for k, v in LABEL2ID.items()}
+
+# Section headers that confuse the model
+SECTION_HEADERS = re.compile(
+    r'^(INTRODUCTION|BACKGROUND|METHODS|RESULTS|DISCUSSION|CONCLUSION|OBJECTIVE|PURPOSE|AIM|AIMS):?\s+',
+    re.IGNORECASE
+)
+
+
+def preprocess_sentence(sentence: str) -> str:
+    """Strip section headers that confuse classification."""
+    return SECTION_HEADERS.sub('', sentence).strip()
 
 MODEL_NAME = "allenai/scibert_scivocab_uncased"  # Best performer in CV comparison
 
@@ -87,6 +99,7 @@ class PubMedBERTClassifier:
 
     def predict(self, sentence: str) -> Tuple[str, float]:
         """Predict relation label and confidence for a single sentence."""
+        sentence = preprocess_sentence(sentence)
         inputs = self.tokenizer(
             sentence,
             truncation=True,
@@ -109,7 +122,7 @@ class PubMedBERTClassifier:
         """Predict labels for multiple sentences."""
         results = []
         for i in range(0, len(sentences), batch_size):
-            batch = sentences[i : i + batch_size]
+            batch = [preprocess_sentence(s) for s in sentences[i : i + batch_size]]
             inputs = self.tokenizer(
                 batch,
                 truncation=True,
