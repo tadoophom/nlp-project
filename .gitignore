@@ -13,25 +13,21 @@ __MACOSX/
 
 # Build/packaging artifacts
 *.egg-info/
-research_project.egg-info/
 
 # Local databases
 *.db
 
-# App-specific: artifacts not meant for source control
-feedback.db
-
-*.csv
-*.png
-*.pdf
-*.txt
-
-# Model artifacts
+# Model artifacts (large binary files)
 models/
 
-# Generated data
-data/*.json
-
-# Output directories
-plots/
+# Generated outputs (not source controlled)
 deliverable_email/
+plots/
+
+# Raw data files (too large for git)
+data/raw/
+data/hfpef_corpus.csv
+data/labeled.json
+
+# Jupyter
+.ipynb_checkpoints/

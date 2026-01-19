@@ -1,0 +1,104 @@
+================================================================================
+EXTRACT NEGATIVE SENTENCES FROM CASEOLAP
+================================================================================
+
+STEP 1: SSH into AWS
+--------------------
+ssh ubuntu@YOUR_AWS_IP
+
+
+STEP 2: Create and run script
+-----------------------------
+cd ~/secondary_caseolap
+
+cat > extract_negative_sentences.py << 'SCRIPT_END'
+#!/usr/bin/env python3
+import json, csv, re
+
+PATTERNS = [
+    r"no significant (difference|association|correlation|relationship|effect)",
+    r"not (significantly )?associated",
+    r"failed to (show|demonstrate|find|detect)",
+    r"no (correlation|relationship|evidence|difference)",
+    r"did not (show|demonstrate|predict|correlate)",
+    r"remains (unclear|to be determined|unknown)",
+    r"not (well )?established",
+]
+
+# Load PMIDs from column 2, skip header
+pmids = set()
+with open("6CVDs/All_HFpEF_PMIDS.csv") as f:
+    reader = csv.reader(f)
+    next(reader)
+    for row in reader:
+        if len(row) >= 2:
+            pmids.add(row[1])
+
+print(f"Loaded {len(pmids)} PMIDs")
+
+# Scan pubmed.json
+sentences = []
+with open("../primary_caseolap/data/pubmed.json") as f:
+    for i, line in enumerate(f):
+        if i % 500000 == 0:
+            print(f"Processed {i} lines, found {len(sentences)} sentences...")
+        try:
+            doc = json.loads(line)
+            if str(doc.get('PMID', '')) in pmids:
+                abstract = doc.get('Abstract', '')
+                if abstract:
+                    for sent in re.split(r'(?<=[.!?])\s+', abstract):
+                        if len(sent) > 50:
+                            sentences.append({'pmid': doc['PMID'], 'sentence': sent})
+        except:
+            continue
+
+print(f"Found {len(sentences)} total sentences")
+
+# Match negative patterns
+compiled = [re.compile(p, re.IGNORECASE) for p in PATTERNS]
+results = []
+for item in sentences:
+    for p in compiled:
+        if p.search(item['sentence']):
+            results.append({**item, 'pattern': p.pattern})
+            break
+    if len(results) >= 500:
+        break
+
+# Save
+with open('negative_sentences.csv', 'w', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=['pmid', 'sentence', 'pattern'])
+    writer.writeheader()
+    writer.writerows(results)
+
+print(f"Saved {len(results)} negative sentences to negative_sentences.csv")
+SCRIPT_END
+
+python3 extract_negative_sentences.py
+
+
+STEP 3: Download to local machine (run on YOUR MAC)
+---------------------------------------------------
+scp ubuntu@YOUR_AWS_IP:~/secondary_caseolap/negative_sentences.csv ~/Documents/projects/research-project/data/
+
+
+STEP 4: Merge into training data (on your Mac)
+----------------------------------------------
+cd ~/Documents/projects/research-project
+uv run python -c "
+import csv, json
+from pathlib import Path
+
+existing = json.loads(Path('data/labeled.json').read_text())
+existing_sents = {item['sentence'] for item in existing}
+
+new = []
+with open('data/negative_sentences.csv') as f:
+    for row in csv.DictReader(f):
+        if row['sentence'] not in existing_sents:
+            new.append({'sentence': row['sentence'], 'label': 'negative'})
+
+Path('data/labeled.json').write_text(json.dumps(existing + new, indent=2))
+print(f'Added {len(new)} new negative samples. Total: {len(existing) + len(new)}')
+"
