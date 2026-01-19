@@ -30,6 +30,7 @@ data/hfpef_corpus.csv
 data/labeled.json
 data/holdout_test.json
 data/explanation_test.csv
+data/review_queue.csv
 
 # Jupyter
 .ipynb_checkpoints/
