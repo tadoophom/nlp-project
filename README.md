@@ -1,70 +1,68 @@
-# HFpEF Protein-Disease Relation Classifier
+# HFpEF Protein-Disease Classification
 
-A SciBERT-based classifier for identifying protein-disease associations in biomedical literature, specifically for Heart Failure with Preserved Ejection Fraction (HFpEF).
+SciBERT-based classifier for filtering CaseOLAP protein results. Identifies whether scientific sentences describe positive, negative, or no association between proteins and HFpEF.
 
 ## Results
 
-| Model | Accuracy | Macro F1 |
-|-------|----------|----------|
-| Rule-based (spaCy) | 40.2% | 0.265 |
-| PubMedBERT v1 | 71.9% | 0.685 |
-| **SciBERT v4** | **97.0%** | **0.969** |
+| Model | Accuracy |
+|-------|----------|
+| Rule-based | 40.2% |
+| PubMedBERT | 71.9% |
+| SciBERT v4 | 97.0% |
+| Multi-label | 97.8% |
+
+Held-out validation: **98%**
 
 ## Project Structure
 
 ```
-├── src/                    # Core library code
-│   ├── bert_classifier.py  # SciBERT classifier wrapper
-│   ├── nlp_utils.py        # Rule-based NLP utilities
-│   └── ...
-├── scripts/                # Training and evaluation scripts
-│   ├── train_bert.py       # Model training
-│   ├── evaluate_classifier.py
-│   ├── comprehensive_comparison.py
-│   └── ...
-├── data/                   # Training data (gitignored)
-│   ├── labeled.json        # 1,481 labeled sentences
-│   └── hfpef_corpus.csv    # Full corpus
-├── models/                 # Trained models (gitignored)
-│   ├── pubmedbert-hfpef/   # Initial model
-│   └── scibert-hfpef-v4/   # Final model (97% accuracy)
-└── streamlit_app/          # Interactive demo app
+├── src/
+│   ├── bert_classifier.py    # Core SciBERT classifier
+│   ├── caseolap_filter.py    # CaseOLAP pipeline integration
+│   ├── explainability.py     # Classification explanations
+│   └── nlp_utils.py          # Rule-based baseline
+│
+├── scripts/
+│   ├── training/
+│   │   └── train_bert.py     # Model training
+│   └── evaluation/
+│       ├── evaluate_holdout.py    # Validation
+│       └── final_comparison.py    # Generate dashboard
+│
+├── models/                   # Trained models (git-ignored)
+├── data/                     # Training data (git-ignored)
+└── deliverable_email/        # Reports and visualizations
 ```
 
 ## Usage
 
-### Training
 ```bash
-uv run python scripts/train_bert.py \
-    --data data/labeled.json \
-    --output models/scibert-new \
-    --lr 1e-5 --epochs 8
+# Train model
+uv run python scripts/training/train_bert.py --data data/labeled.json --output models/new-model
+
+# Evaluate
+uv run python scripts/evaluation/evaluate_holdout.py
+
+# Generate comparison dashboard
+uv run python scripts/evaluation/final_comparison.py
 ```
 
-### Evaluation
-```bash
-uv run python scripts/evaluate_classifier.py \
-    --data data/labeled.json \
-    --bert-model models/scibert-hfpef-v4/final
-```
+## Classification
 
-### Inference
 ```python
 from src.bert_classifier import PubMedBERTClassifier
 
 clf = PubMedBERTClassifier(model_path="models/scibert-hfpef-v4/final")
 label, confidence = clf.predict("BNP is elevated in HFpEF patients.")
-# label: "positive", confidence: 0.95
+# ('positive', 0.99)
 ```
 
-## Classes
+## CaseOLAP Integration
 
-- **positive**: Sentence indicates protein-disease association
-- **negative**: Sentence explicitly negates association
-- **no_association**: Methodology, study design, or no claim about relationship
+```python
+from src.caseolap_filter import CaseOLAPFilter
 
-## Dependencies
-
-```bash
-uv sync
+filter = CaseOLAPFilter()
+filtered_df = filter.filter_dataframe(caseolap_results)
+# Removes proteins with negative/weak evidence
 ```
