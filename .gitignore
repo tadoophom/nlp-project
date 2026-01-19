@@ -28,6 +28,8 @@ plots/
 data/raw/
 data/hfpef_corpus.csv
 data/labeled.json
+data/holdout_test.json
+data/explanation_test.csv
 
 # Jupyter
 .ipynb_checkpoints/
