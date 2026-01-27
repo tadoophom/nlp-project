@@ -42,6 +42,22 @@ uv run python scripts/evaluation/evaluate_holdout.py
 uv run python scripts/evaluation/final_comparison.py
 ```
 
+## BioRED Benchmark Download
+
+The BioRED files are not stored in the repository. Download them to the path expected by `scripts/validate_on_biored.py`.
+
+```bash
+mkdir -p data/benchmarks/biored
+curl -L ftp://ftp.ncbi.nlm.nih.gov/pub/lu/BioRED/BIORED.zip -o data/benchmarks/biored/BIORED.zip
+unzip -o data/benchmarks/biored/BIORED.zip -d data/benchmarks/biored
+```
+
+Then run:
+
+```bash
+uv run python scripts/validate_on_biored.py
+```
+
 ## Classification
 
 ```python

@@ -27,6 +27,7 @@ plots/
 
 # Raw data files (too large for git)
 data/raw/
+data/benchmarks/biored/
 data/hfpef_corpus.csv
 data/labeled.json
 data/holdout_test.json
