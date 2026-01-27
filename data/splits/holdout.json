@@ -1,0 +1,702 @@
+[
+  {
+    "sentence": "As shown with immunoblots and ELISA, empagliflozin significantly suppressed increased levels of ICAM-1, VCAM-1, TNF-\u03b1, and IL-6 in human and murine HFpEF myocardium and attenuated pathological oxidative parameters (H2O2, 3-nitrotyrosine, GSH, lipid peroxide) in both cardiomyocyte cytosol and mitochondria in addition to improved endothelial vasorelaxation.",
+    "protein": "P01375",
+    "pmid": 32396609,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "Significant reductions from 0.99 to 0.76 pg/mL (P < 0.05) and from 1.08 to 0.97 pg/mL (P < 0.05) in endothelin-1 level were shown in patients with HFpEF and HFmrEF.",
+    "protein": "P05305",
+    "pmid": 34970367,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "We conclude that metformin offers therapeutic benefit during HFpEF by lowering titin-based passive stiffness.",
+    "protein": "Q8WZ42",
+    "pmid": 30567709,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Sacubitril/Valsartan effectively reduced plasma neprilysin activity in both diabetic patients with pre-clinical HFpEF from the PARABLE trial (baseline (Val n\u2009=\u200925; Sac/Val n\u2009=\u200935) and 3\u00a0months after treatment (Val n\u2009=\u200921/25; Sac/Val n\u2009=\u200933/35))",
+    "protein": "P08473",
+    "pmid": 40369551,
+    "manual_label": "associated",
+    "model_confidence": 0.979
+  },
+  {
+    "sentence": "We have recently shown that titin, a giant sarcomere protein, is hyperphosphorylated in HFpEF.",
+    "protein": "Q8WZ42",
+    "pmid": 40464169,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Conclusion The SCHS is associated with abnormal GLS in HF patients (either HFpEF or HFrEF) that results in remodeling and adverse outcomes, including mortality and readmission rates.",
+    "protein": "O94925",
+    "pmid": 38021850,
+    "manual_label": "associated",
+    "model_confidence": 0.988
+  },
+  {
+    "sentence": "We demonstrated that GE promoted the transcriptional activation of Nrf2 by targeting MMP2 to affect upstream SIRT1 and downstream GSK3\u03b2, which in turn alleviated the oxidative stress in the hearts of HFpEF mice.",
+    "protein": "P08253",
+    "pmid": 39060523,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "After multivariate adjustment, the hazard ratios (HRs) for 24-month all-cause mortality for HFrEF, HFmrEF, and HFpEF were 1.113 (0.728, 1.704), P = 0.620; 1.063 (0.730, 1.548), P = 0.750; and 0.619 (0.240, 1.593), P = 0.320, for men versus women, respectively.",
+    "protein": "O14964",
+    "pmid": 33191350,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "Growing evidence indicates that the innate immune response pathway from the NLRP3 inflammasome, to interleukin-1 to interleukin-6, is involved in the generation of obesity-related systemic inflammation and heart failure with preserved ejection fraction.",
+    "protein": "P05231",
+    "pmid": 36483560,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "HFpEF is characterised by the activation of neurohormonal axes, namely of the renin-angiotensin-aldosterone system and the sympathetic nervous system, although to a lesser extent compared with heart failure with reduced ejection fraction.",
+    "protein": "P00797",
+    "pmid": 37427009,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Our results also indicate that upstream regulatory events, including inhibition of transcription factors STAT4, SRF and TP53, and activation of transcription repressors HEY2 and KDM5A, could provide explanatory mechanisms to observed gene expression differences and ultimately cardiac dysfunction in the HFpEF proxy group.",
+    "protein": "P11831",
+    "pmid": 30816197,
+    "manual_label": "associated",
+    "model_confidence": 0.993
+  },
+  {
+    "sentence": "IL-6, PTX-3, ANGPTL-4 and TNF-\u03b1 were correlated with HFrEF; IL-1\u03b2 and PTX-3 were correlated with HFmrEF; and IL-1\u03b2 and IL-6 were correlated with HFpEF.",
+    "protein": "P01375",
+    "pmid": 31105751,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "HFpEF is a diagnostic challenge using traditional investigation tools; Galectin-3 (Gal-3) is an emerging biomarker useful in individuals at risk for HF.",
+    "protein": "P17931",
+    "pmid": 27067445,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Results: The average values of diastolic blood pressure (DBP), glucose and lipid profiles, uric acide, hs CRP were found to be significantly higher among obese patients with HFpEF than non-obese.",
+    "protein": "P02741",
+    "pmid": 38691799,
+    "manual_label": "associated",
+    "model_confidence": 0.983
+  },
+  {
+    "sentence": "In HFpEF, MPO-dependent oxidative stress reflected by uric acid and calprotectin is increased, and SDMA is associated with diastolic dysfunction and uric acid with outcome.",
+    "protein": "P05164",
+    "pmid": 32424988,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Mineralocorticoid receptor (MR) overactivation by aldosterone has long been recognized as a key driver of vascular inflammation, cardiac fibrosis, and cardiac hypertrophy, pathophysiological processes integral to the development and progression of HFmrEF/HFpEF.",
+    "protein": "P08235",
+    "pmid": 40383455,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "The primary outcome (all-cause mortality) and the secondary outcomes (cardiovascular mortality, hospitalization for HF, stroke, and MI) were evaluated via Cox proportional hazards models to compare the hazard ratios (HRs) between sexes in HFpEF patients.",
+    "protein": "O14964",
+    "pmid": 35586579,
+    "manual_label": "incidental",
+    "model_confidence": 0.66
+  },
+  {
+    "sentence": "Heart failure with preserved ejection fraction (EF) and left ventricular (LV) hypertrophy (LVH) are typical phenotypes of transthyretin cardiac amyloidosis (ATTR-CA).",
+    "protein": "P02766",
+    "pmid": 40452727,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "In db/db, a model of HFPEF, selective HR reduction by If-inhibition improved vascular stiffness, LV contractility, and diastolic function.",
+    "protein": "P48357",
+    "pmid": 22833515,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "According to the recent 2021 European Society of Cardiology (ESC) guidelines, the triad composed of an Angiotensin Converting Enzyme inhibitor or Angiotensin Receptor-Neprilysin Inhibitor (ARNI), a beta-blocker, and a Mineralcorticoid Receptor Antagonist is the cornerstone therapy for all patients with heart failure with reduced ejection fraction (HFrEF) but a substantial gap exists for patients with HFpEF/HFmrEF.",
+    "protein": "P20936",
+    "pmid": 34915125,
+    "manual_label": "associated",
+    "model_confidence": 0.988
+  },
+  {
+    "sentence": "Myeloperoxidase (MPO), a neutrophil-derived enzyme, is associated with oxidative stress and inflammation, which contribute to the pathophysiology of heart failure with preserved ejection fraction (HFpEF).",
+    "protein": "P05164",
+    "pmid": 40645760,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "The top eight biomarkers-N-terminal prohormone brain natriuretic peptide, growth differentiation factor-15, matrix metalloproteinase-2, osteoprotegerin, tissue inhibitor of metalloproteinase-4, chitinase-3-like protein 1, insulin-like growth factor-binding protein 2, and insulin-like growth factor-binding protein 7-are mainly involved in inflammation and extracellular matrix remodelling, which are currently proposed key processes in HFpEF pathophysiology.",
+    "protein": "P08253",
+    "pmid": 35301820,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Consecutive patients who were diagnosis with HFpEF after discharge between January 2015 and April 2018 at the First Affiliated Hospital of Dalian Medical University and who had been treated with torsemide or furosemide were included in this study.",
+    "protein": "O75888",
+    "pmid": 39238285,
+    "manual_label": "incidental",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "About 82% of responders would administrate HF to patients with HFpEF with CA, with the most preferable drugs being diuretics, sodium-glucose cotransporter-2 inhibitors, and renin-angiotensin-aldosterone system inhibitors.",
+    "protein": "P00797",
+    "pmid": 39481586,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "Aging and CKD-HFpEF influenced fasting insulin levels and insulin resistance, glomerular filtration rate, cortical MV density, glomerulosclerosis, perivascular fibrosis, and tubular injury.",
+    "protein": "P01308",
+    "pmid": 39746326,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "The top eight biomarkers-N-terminal prohormone brain natriuretic peptide, growth differentiation factor-15, matrix metalloproteinase-2, osteoprotegerin, tissue inhibitor of metalloproteinase-4, chitinase-3-like protein 1, insulin-like growth factor-binding protein 2, and insulin-like growth factor-binding protein 7-are mainly involved in inflammation and extracellular matrix remodelling, which are currently proposed key processes in HFpEF pathophysiology.",
+    "protein": "Q16270",
+    "pmid": 35301820,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Cardiometabolic therapies such as mineralocorticoid receptor antagonists (MRAs), sodium glucose cotransporter 2 inhibitors (SGLT2i), and glucagon-like peptide 1 receptor agonists (GLP-1 RA) reduce clinical heart failure events in patients with heart failure with mildly reduced or preserved ejection fraction (HFpEF).",
+    "protein": "P43220",
+    "pmid": 41181824,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "The new paradigm presumes the following sequence of events in HFPEF: 1) a high prevalence of comorbidities such as overweight/obesity, diabetes mellitus, chronic obstructive pulmonary disease, and salt-sensitive hypertension induce a systemic proinflammatory state; 2) a systemic proinflammatory state causes coronary microvascular endothelial inflammation; 3) coronary microvascular endothelial inflammation reduces nitric oxide bioavailability, cyclic guanosine monophosphate content, and protein kinase G (PKG) activity in adjacent cardiomyocytes; 4) low PKG activity favors hypertrophy development and increases resting tension because of hypophosphorylation of titin; and 5) both stiff cardiomyocytes and interstitial fibrosis contribute to high diastolic left ventricular (LV) stiffness and heart failure development.",
+    "protein": "Q8WZ42",
+    "pmid": 23684677,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Drugs which suppress the activity of the renin-angiotensin-aldosterone system, including \u03b2-blockers, are foundation therapies for the management of heart failure with reduced ejection fraction (HFrEF) and despite a lack of specific outcomes trials, are also widely used by cardiologist in patients with HF with preserved ejection fraction (HFpEF).",
+    "protein": "P00797",
+    "pmid": 38597068,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "The HRs were 1.59 (95% CI, 1.48-1.70) for patients with HFpEF and 2.43 (95% CI, 2.23-2.65) for patients with HFrEF.",
+    "protein": "O14964",
+    "pmid": 37143487,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "AS-IV attenuates systemic inflammatory infiltration and myocardial inflammation levels in HFpEF mice by decreasing the expression of plasma inflammatory markers GDF15, CRP, IL1RL1, and MCP-1, NLRP3, IL-1\u03b2, Caspase-1, and IL-6 in the myocardium of HFpEF mice.",
+    "protein": "Q99988",
+    "pmid": 39640484,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "OUTCOME MEASURES: Utilization rates for angiotensin-converting enzyme inhibitors (ACEIs), angiotensin receptor blockers (ARBs), angiotensin receptor-neprilysin inhibitors (ARNIs), aldosterone receptor antagonists (ARAs), diuretics, \u03b2-blockers, calcium channel blockers (CCBs), phosphodiesterase 5 inhibitors (PDE5Is), nitrates, digoxin, and sodium glucose cotransporter-2 inhibitors (SGLT2i) within 90\u00a0days of the first HFpEF diagnosis.",
+    "protein": "P12821",
+    "pmid": 38510191,
+    "manual_label": "incidental",
+    "model_confidence": 0.565
+  },
+  {
+    "sentence": "Galectin-3 led to an AUC of 0.931 (P < 0.001) for HFpEF and an AUC of 0.882 (P < 0.001) for HFrEF.",
+    "protein": "P17931",
+    "pmid": 25902879,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "We examined atrial function in vivo and Ca transients (CaT) (Fluo4-AM, field stim) in atrial cardiomyocytes of ZSF-1 rats without (Ln; lean hypertensive) and with metabolic syndrome (Ob; obese, hypertensive, diabetic) and HFpEF.",
+    "protein": "P35318",
+    "pmid": 29289652,
+    "manual_label": "incidental",
+    "model_confidence": 0.947
+  },
+  {
+    "sentence": "However, FGF21's role in heart failure with preserved ejection fraction (HFpEF) remains unclear.",
+    "protein": "Q9NSA1",
+    "pmid": 39955281,
+    "manual_label": "not_associated",
+    "model_confidence": 0.994
+  },
+  {
+    "sentence": "Cardiometabolic therapies such as mineralocorticoid receptor antagonists (MRAs), sodium glucose cotransporter 2 inhibitors (SGLT2i), and glucagon-like peptide 1 receptor agonists (GLP-1 RA) reduce clinical heart failure events in patients with heart failure with mildly reduced or preserved ejection fraction (HFpEF).",
+    "protein": "P08235",
+    "pmid": 41181824,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "In 10\u2009019 middle-aged individuals (mean age, 63.3\u00b110.6\u2009years; 38.5% women), the prevalence rates of HFpEF and pre-HFpEF were 34.2% and 34.5%, with a median serum hs-CRP level of 4.5\u2009mg/L (interquartile range, 1.9-10\u2009mg/L) and 5.0\u2009mg/L (interquartile range, 2.1-10.1\u2009mg/L), respectively.",
+    "protein": "P02741",
+    "pmid": 38240197,
+    "manual_label": "associated",
+    "model_confidence": 0.985
+  },
+  {
+    "sentence": "We review the evidence that high parathyroid hormone (PTH) is associated with advanced HF, as well as evidence that it's associated with HF with preserved ejection fraction (HFPEF).",
+    "protein": "P01270",
+    "pmid": 23369142,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "As much as 13% of patients hospitalized with heart failure with preserved ejection fraction may have ATTR-cardiomyopathy (CM).",
+    "protein": "P02766",
+    "pmid": 39139853,
+    "manual_label": "associated",
+    "model_confidence": 0.982
+  },
+  {
+    "sentence": "Several papers have revealed that HDL-C and CRP can act as anti-inflammatory and pro-inflammatory factors, respectively, to affect disease progression in patients with heart failure, and the balance of the two has been shown to affect the prognosis of patients with heart failure with preserved ejection fraction (HFpEF), but none of the above studies involved patients with the more severe forms of heart failure with mildly reduced ejection fraction and heart failure with reduced ejection fraction; therefore, the present study is to extend the balance of HDL-C and CRP to the whole range of types of patients CHF to further confirm its importance.",
+    "protein": "P02741",
+    "pmid": 40118484,
+    "manual_label": "associated",
+    "model_confidence": 0.986
+  },
+  {
+    "sentence": "Here, we optimized RBM20-ASO dosing in a HFpEF mouse model that closely mimics human disease, characterized by metabolic syndrome and comorbidities, but without primary defects in titin or RBM20.",
+    "protein": "Q8WZ42",
+    "pmid": 41104480,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "Among 2,297 participants in the Multi-Ethnic Study of Atherosclerosis (MESA), each doubling of serum SLPI was independently associated with incident HF (HR 1.77; 95% CI 1.02-3.02; P\u2009=\u20090.04), particularly incident HF with preserved ejection fraction (HFpEF; HR 2.44; 95% CI 1.23-4.84; P\u2009=\u20090.01) but not HF with reduced ejection fraction (HFrEF; HR 0.95; 95% CI 0.36-2.46; P\u2009=\u20090.91).",
+    "protein": "P03973",
+    "pmid": 36635319,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "METHODS AND RESULTS: Plasma levels of C-terminal pro-endothelin-1 (CT-proET-1) and mid-regional pro-adrenomedullin (MR-proADM), central haemodynamics, echocardiography, and oxygen consumption (VO2) were measured at rest and during exercise in subjects with invasively-verified HFpEF (n\u2009=\u200938) and controls free of HF (n\u2009=\u200920) as part of a prospective study.",
+    "protein": "P05305",
+    "pmid": 31513270,
+    "manual_label": "incidental",
+    "model_confidence": 0.953
+  },
+  {
+    "sentence": "No changes in pulmonary artery medial thickness and ex\u00a0vivo vasoreactivity (to acetylcholine and endothelin-1) were observed and RNA sequencing analysis failed to identify gene clustering in HFpEF lungs.",
+    "protein": "P05305",
+    "pmid": 38780193,
+    "manual_label": "not_associated",
+    "model_confidence": 0.997
+  },
+  {
+    "sentence": "We have developed a novel \"2-hit\" model, which combines obesity and insulin resistance with chronic pressure overload to recapitulate clinical features of HFpEF.",
+    "protein": "P01308",
+    "pmid": 38895483,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "In this context, the objective of this meta-analysis is to evaluate the effectiveness of sacubitril/valsartan compared to angiotensin-converting enzyme inhibitors (ACEIs) and angiotensin receptor blockers (ARBs) in managing HFpEF.",
+    "protein": "P12821",
+    "pmid": 37917889,
+    "manual_label": "associated",
+    "model_confidence": 0.976
+  },
+  {
+    "sentence": "An 86-year-old woman suffering from heart failure with preserved ejection fraction underwent [ 99m Tc]Tc-DPD scintigraphy and a SPECT/CT for suspected transthyretin amyloid cardiac amyloidosis.",
+    "protein": "P02766",
+    "pmid": 38048549,
+    "manual_label": "associated",
+    "model_confidence": 0.937
+  },
+  {
+    "sentence": "Zebrafish larvae exposed to ion-poor environment exhibited rapid angiotensinogen up-regulation, followed by manifestation of arterial hypertension and cardiac remodelling that recapitulates key characteristics of incipient heart failure with preserved ejection fraction.",
+    "protein": "P01019",
+    "pmid": 36536484,
+    "manual_label": "associated",
+    "model_confidence": 0.993
+  },
+  {
+    "sentence": "The angiogenesis-specific marker, neuropilin and the remodeling-specific marker, osteopontin were predictive for all-cause mortality and/or HF-related rehospitalizations at 18\u00a0months in HFpEF, but not in HFrEF ( CONCLUSIONS:",
+    "protein": "P10451",
+    "pmid": 28360225,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "The mineralocorticoid receptor (MR) plays a pivotal role in cardiorenal disease progression, but steroidal MR antagonists (MRAs) are limited by hyperkalemia, hormonal side effects, and uncertain efficacy in heart failure with preserved ejection fraction (HFpEF).",
+    "protein": "P08235",
+    "pmid": 40423595,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "The clinical value of systemic inflammatory indexes (SII) such as neutrophil-to-lymphocyte ratio (NLR), lymphocyte-to-monocyte ratio (LMR), albumin-to-gamma-glutamyl-transferase ratio (AGR), white-blood-cell-count-to-mean-platelet-volume ratio (WMR), high-density-lipoprotein-cholesterol-to-C-reactive-protein ratio (HCR), etc. were explored in heart failure (HF) with preserved ejection fraction (HFpEF) because of their easy availability and clinical value in the diagnosis, therapy and prognosis of cardiovascular diseases.",
+    "protein": "P02768",
+    "pmid": 36295633,
+    "manual_label": "associated",
+    "model_confidence": 0.836
+  },
+  {
+    "sentence": "Recent evidence indicates that GLP-1 RA may play a significant role in preventing HFpEF in patients with obesity, MS, or obese T2D. This effect may be due to activating cardioprotective mechanisms (the endogenous counter-regulatory renin angiotensin system and the AMPK/mTOR pathway) and by inhibiting deleterious remodeling mechanisms (the PKA/RhoA/ROCK pathway, aldosterone levels, and microinflammation).",
+    "protein": "P42345",
+    "pmid": 38673991,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "In multivariate logistic regression model T2DM (R(2) = 0.26; P = 0.001), obesity (R(2) = 0.22; P = 0.001), previous MI (R(2) = 0.17; P = 0.012), galectin-3 (R(2) = 0.67; P = 0.012), CD31(+)/annexin V(+) EMPs (R(2) = 0.11; P = 0.001), NT-proBNP (R(2) = 0.11; P = 0.046), CD14(+) CD309(+) cells (R(2) = 0.058; P = 0.001), and CD14(+) \u0421D309(+) Tie-2(+) cells (R(2) = 0.044; P = 0.028) were found as independent predictors of HFpEF.",
+    "protein": "P17931",
+    "pmid": 26981573,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "This HFpEF glycolytic profile persisted after adjusting for body mass index (BMI), diabetes, age, and sex, or in subgroup analysis with controls and HFpEF matched for BMI and diabetes/insulin history.",
+    "protein": "P01308",
+    "pmid": 39119952,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "Myocardial titin filament stiffening, endothelial dysfunction, and skeletal muscle (SKM) myopathy are suspected to contribute to HFpEF genesis.",
+    "protein": "Q8WZ42",
+    "pmid": 35301823,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Multivariable-adjusted Cox proportional hazards models were used to calculate HRs and 95%\u00a0CIs for the association between PPC levels and\u00a0incident HF, HFpEF, or HFrEF.",
+    "protein": "O14964",
+    "pmid": 36175058,
+    "manual_label": "associated",
+    "model_confidence": 0.875
+  },
+  {
+    "sentence": "They measured PWVs and GLS in 155 healthy controls, 75\u00a0subjects at risk of developing HF (American College of Cardiology/American Heart Association stage A-B) and 236 patients in stage C heart failure with preserved ejection fraction (HFpEF) (n\u00a0=\u00a0104) or heart failure with reduced ejection fraction (HFrEF) (n\u00a0=\u00a0132).",
+    "protein": "O94925",
+    "pmid": 36075614,
+    "manual_label": "incidental",
+    "model_confidence": 0.957
+  },
+  {
+    "sentence": "Close follow-up is essential to decrease HFR of octogenarians with HFpEF with DM, high NT-pro BNP (\u22651611\u00a0pg/mL) and low albumin (\u22643.7\u00a0g/dL) levels at discharge.",
+    "protein": "P02768",
+    "pmid": 33689231,
+    "manual_label": "associated",
+    "model_confidence": 0.986
+  },
+  {
+    "sentence": "Impairment of SIRT3-mediated EC metabolism may lead to a disruption of EC/pericyte/cardiomyocyte communications and coronary microvascular rarefaction, which promotes cardiomyocyte hypoxia, Titin-based cardiomyocyte stiffness, and myocardial fibrosis, thus leading to a diastolic dysfunction and HFpEF.",
+    "protein": "Q8WZ42",
+    "pmid": 31425381,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "We evaluated the prognostic accuracy and complementarity of B-type natriuretic peptide (BNP) and soluble ST2 (sST2) plasma levels at discharge from a hospital admission for acute heart failure, both in patients with preserved (HFpEF) and depressed (HFrEF) systolic function.",
+    "protein": "Q06520",
+    "pmid": 25586507,
+    "manual_label": "incidental",
+    "model_confidence": 0.983
+  },
+  {
+    "sentence": "Myeloperoxidase is a promising therapeutic target for treatment of patients suffering from heart failure with preserved ejection fraction (HFpEF).",
+    "protein": "P05164",
+    "pmid": 36005476,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "In contrast to beta-blockers and renin-angiotensin system inhibitors, the role of calcium channel blockers (CCBs) in patients with heart failure with preserved ejection fraction (HFpEF) remains uncertain.",
+    "protein": "P00797",
+    "pmid": 39346950,
+    "manual_label": "not_associated",
+    "model_confidence": 0.688
+  },
+  {
+    "sentence": "After adjusting for age, gender, BMI, and relevant medical history, the correlation coefficients between EAT and GLS were 0.21, 0.17, and -0.12 in HFrEF, HFmrEF, and HFpEF groups, respectively.",
+    "protein": "O94925",
+    "pmid": 40052275,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "Therefore, the focus of the present study is to determine the mechanism by which GDF15 protects cardiac function in HFpEF.",
+    "protein": "Q99988",
+    "pmid": 40018931,
+    "manual_label": "associated",
+    "model_confidence": 0.986
+  },
+  {
+    "sentence": "In HFpEF, FGF23 correlated with greater symptom burden (New York Heart Association class: r\u00a0=\u00a00.308), poorer exercise capacity (6MWT distance: r\u00a0=\u00a0-0.345), and plasma biomarkers reflecting inflammation (highly sensitive C-reactive protein: r\u00a0=\u00a00.207, myeloperoxidase: r\u00a0=\u00a00.311), bone metabolism (osteoprotegerin: r\u00a0=\u00a00.446), renal dysfunction (urea: r\u00a0=\u00a00.267, creatinine: r\u00a0=\u00a00.351, estimated glomerular filtration rate: r\u00a0=\u00a0-0.367), and echocardiographic E/e' (r\u00a0=\u00a00.298);",
+    "protein": "P05164",
+    "pmid": 32935918,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "Recent landmark trials have established new therapeutic options for chronic HFpEF, including sodium glucose co-transporter 2 inhibitors, mineralocorticoid receptor antagonists, and glucagon-like peptide-1 receptor agonists.",
+    "protein": "P08235",
+    "pmid": 41534382,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "This review assesses global longitudinal strain (GLS) and left atrial strain (LAS) as echocardiographic biomarkers for diagnosing and characterizing HFpEF.",
+    "protein": "O94925",
+    "pmid": 40003722,
+    "manual_label": "associated",
+    "model_confidence": 0.981
+  },
+  {
+    "sentence": "Compared with controls, patients with HFPEF and HFREF had higher median levels of GDF15 (540 pg/mL vs. 2529 and 2672 pg/mL, respectively), hsTnT (3.7 pg/mL vs. 23.7 and 35.6 pg/mL), and NT-proBNP (69 pg/mL vs. 942 and 2562 pg/mL), but not ST2 (27.6 ng/mL vs. 31.5 and 35.3 ng/mL), adjusting for clinical covariates.",
+    "protein": "Q06520",
+    "pmid": 22869458,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "AF mice exhibited heart failure with preserved ejection fraction (HFpEF)/severe diastolic dysfunction at 6\u2009months with a preserved systolic function compared with db/db mice as well as 3\u2009months of their age.",
+    "protein": "P48357",
+    "pmid": 35815932,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Circulating levels of soluble ST2 (the interleukin-1 receptor-like) markedly increased in rats with HFpEF, while plasma NT-proBNP levels decreased.",
+    "protein": "Q06520",
+    "pmid": 35097026,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Additionally, network analyses showed a special role of platelet-derived growth factor subunit A, Dickkopf-related protein 1, and tumour necrosis factor receptor superfamily member 6 in HFpEF patients, whereas perlecan and junctional adhesion molecule A stood out in the HFrEF group.",
+    "protein": "O94907",
+    "pmid": 36184749,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "Mineralocorticoid receptor antagonists (MRAs) are established for heart failure with reduced ejection fraction (HFrEF), but their benefits in mildly reduced/preserved EF (HFmrEF/HFpEF) and agent-specific profiles require clarification.",
+    "protein": "P08235",
+    "pmid": 41023853,
+    "manual_label": "associated",
+    "model_confidence": 0.988
+  },
+  {
+    "sentence": "Twenty-week-old db/db mice exhibited HFpEF, as confirmed by echocardiography and hemodynamic measurements.",
+    "protein": "P48357",
+    "pmid": 38065272,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  },
+  {
+    "sentence": "Owing to the high cost of treatment with tafamidis, USS along with PYP scan for ATTR-CM in older HFpEF patients with ventricular wall thickening is unlikely to become a cost-effective strategy at a liberal WTP threshold.",
+    "protein": "P30043",
+    "pmid": 37979789,
+    "manual_label": "incidental",
+    "model_confidence": 0.955
+  },
+  {
+    "sentence": "Recent evidence supports the synergistic role of oxidative stress and inflammation in the progression of heart failure with preserved ejection fraction, in concert with endothelial dysfunction and impaired nitric oxide-cyclic guanosine monophosphate-protein kinase G signalling via modification of the giant protein titin.",
+    "protein": "Q8WZ42",
+    "pmid": 28510229,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Improved knowledge of the pathophysiology of PH-HFpEF has paved the way for the use of new drugs such as angiotensin receptor neprilysin inhibitors (ARNIs), non-steroidal mineral corticoid receptor antagonist (nsMRA), sodium-glucose cotransporter inhibitors (SGLT2is), levosimendan, and glucagon-like peptide 1 (GLP-1) agonists.",
+    "protein": "P08473",
+    "pmid": 39598011,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "INTRODUCTION: Previous studies have shown that fibroblast growth factor 21 (FGF21) is involved in the ventricular remodeling process in heart failure with preserved ejection fraction (HFpEF).",
+    "protein": "Q9NSA1",
+    "pmid": 36321746,
+    "manual_label": "associated",
+    "model_confidence": 0.883
+  },
+  {
+    "sentence": "We especially innovate two acronyms, \"HFpEF MUTED CALL\" and \"HFmrEF MUST COUNT\", to help in the early diagnosis and screening of transthyretin amyloid cardiomyopathy as shown in the Central Illustration.",
+    "protein": "P02766",
+    "pmid": 37456934,
+    "manual_label": "associated",
+    "model_confidence": 0.988
+  },
+  {
+    "sentence": "As PDK4 (PDC kinase 4) is up-regulated in HFpEF, we over-expressed PDK4 in cardiomyocytes, ensuring that PDC is phosphorylated and thereby inhibited.",
+    "protein": "P20941",
+    "pmid": 39345412,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Additionally, we performed correlation analyses of EAT and PeAT with GLS and body mass index (BMI) within the HFrEF and HFpEF cohorts.",
+    "protein": "O94925",
+    "pmid": 40825422,
+    "manual_label": "associated",
+    "model_confidence": 0.908
+  },
+  {
+    "sentence": "The objective was to evaluate the diagnosis of heart failure with preserved ejection fraction (HFpEF) using the biomarkers, growth differentiation factor-15 (GDF-15), galectin-3 (Gal-3), and soluble ST2 (sST2), and to determine whether they can differentiate HFpEF from heart failure with reduced ejection fraction (HFrEF).",
+    "protein": "P17931",
+    "pmid": 32472523,
+    "manual_label": "incidental",
+    "model_confidence": 0.943
+  },
+  {
+    "sentence": "P\u00a0=\u00a00.023] and low albumin level (OR, 0.334; 95% CI, 0.192-0.582; P\u00a0<\u00a00.001) in HFpEF patients, and physical frailty was associated with women (OR, 2.150; 95% CI, 1.030-4.500; P\u00a0=\u00a00.042) and anaemia (OR, 2.840; 95% CI, 1.300-6.230; P\u00a0=\u00a00.003) in HFrEF patients.",
+    "protein": "P02768",
+    "pmid": 35355441,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "Recent evidence indicates that GLP-1 RA may play a significant role in preventing HFpEF in patients with obesity, MS, or obese T2D. This effect may be due to activating cardioprotective mechanisms (the endogenous counter-regulatory renin angiotensin system and the AMPK/mTOR pathway) and by inhibiting deleterious remodeling mechanisms (the PKA/RhoA/ROCK pathway, aldosterone levels, and microinflammation).",
+    "protein": "P00797",
+    "pmid": 38673991,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "For the past decade, the prevailing paradigm to explain heart failure with preserved ejection fraction (HFpEF) has assumed that multiple comorbidities act in concert to trigger a systemic inflammatory state that causes coronary microvascular dysfunction, nitric oxide/cyclic guanosine monophosphate (cGMP) deficiency-dependent titin abnormalities, and load-dependent cellular inflammation and fibrosis of the myocardium.",
+    "protein": "Q8WZ42",
+    "pmid": 41269201,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "OBJECTIVE: To investigate the relation between parathyroid hormone (PTH) and heart failure with preserved ejection fraction (HF-PEF) in outpatients.",
+    "protein": "P01270",
+    "pmid": 22582762,
+    "manual_label": "incidental",
+    "model_confidence": 0.973
+  },
+  {
+    "sentence": "The pathophysiology of hypertensive HFpEF extends beyond the development of left ventricular hypertrophy and diastolic dysfunction to myocardial contractile dysfunction, beyond left atrial structural dilatation to left atrial functional decline, beyond macrovascular stiffening to microvascular dysfunction, beyond central cardiac triggers to systemic endothelial inflammation, beyond fibrosis to titin changes, and beyond collagen deposition to qualitative changes in collagen.",
+    "protein": "Q8WZ42",
+    "pmid": 27070649,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "In this review, we summarize the differences in pathological development of HFrEF and HFpEF, focussing on disease-specific aspects of inflammation and endothelial function, cardiomyocyte hypertrophy and death, alterations in the giant spring titin, and fibrosis.",
+    "protein": "Q8WZ42",
+    "pmid": 31963679,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "In the present study, we evaluated the effects of the GLP-1 receptor agonist semaglutide and the pan-PPAR agonist lanifibranor in the free choice diet induced obese MASH hamster, a preclinical model with human-like lipoprotein metabolism, MASH and HFpEF.",
+    "protein": "Q07869",
+    "pmid": 40653077,
+    "manual_label": "associated",
+    "model_confidence": 0.977
+  },
+  {
+    "sentence": "Age, body mass index, atrial fibrillation, New York Heart Association functional class, and albumin were independent predictors of low NT-proBNP levels in HFpEF patients.",
+    "protein": "P02768",
+    "pmid": 38013260,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "Associations of clusters with HFpEF severity and fibrosis biomarkers (PIIINP [procollagen III N-terminal peptide], CITP [C-telopeptide for type I collagen], IGFBP7",
+    "protein": "Q16270",
+    "pmid": 32809874,
+    "manual_label": "associated",
+    "model_confidence": 0.981
+  },
+  {
+    "sentence": "Mitiperstat (AZD4831) is a novel irreversible oral myeloperoxidase inhibitor in clinical development for heart failure with preserved ejection fraction, metabolic dysfunction-associated steatohepatitis and chronic obstructive pulmonary disease.",
+    "protein": "P05164",
+    "pmid": 39495467,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Central obesity identifies patients more likely to respond to mineralocorticoid receptor antagonists in both HFpEF and in HFrEF, but this feature also identifies patients more likely to respond neprilysin inhibition or sodium-glucose cotransporter 2 inhibitors if they have HFpEF, but not HFrEF.",
+    "protein": "P08473",
+    "pmid": 40891153,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "Background Transthyretin cardiac amyloidosis (ATTR-CM), found in 6% to 15% of cohorts with heart failure with preserved ejection fraction, has long been considered a rare disease with poor prognosis.",
+    "protein": "P02766",
+    "pmid": 37522238,
+    "manual_label": "associated",
+    "model_confidence": 0.515
+  },
+  {
+    "sentence": "Obesity-induced increases in epicardial fat can also increase cardiac insulin resistance and negatively affect cardiac energy metabolism and HFpEF.",
+    "protein": "P01308",
+    "pmid": 39892611,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "After adjusting for covariates, adrenomedullin (ADM), galectin-9 (Gal-9), thrombospondin-2 (THBS-2), CD4, and tumour necrosis factor-related apoptosis-inducing ligand receptor 2 (TRAIL-R2) were significantly higher in obese HFpEF patients [body mass index (BMI) \u226530\u2009kg/m CONCLUSION: Obese HFpEF patients exhibit higher circulating biomarkers of volume expansion (ADM), myocardial fibrosis (THBS-2) and systemic inflammation (Gal-9, CD4) compared to obese non-HFpEF or lean HFpEF patients.",
+    "protein": "P35318",
+    "pmid": 34231954,
+    "manual_label": "associated",
+    "model_confidence": 0.988
+  },
+  {
+    "sentence": "Transthyretin amyloid cardiomyopathy (ATTR-CM), which is thought to be an underdiagnosed disease, can cause HFpEF.",
+    "protein": "P02766",
+    "pmid": 39868751,
+    "manual_label": "associated",
+    "model_confidence": 0.992
+  },
+  {
+    "sentence": "In HFrEF, DM only and CKD only were associated with 1-year all-cause mortality or HF hospitalization (both HRs: 1.43; 95%\u00a0CI: 1.14-1.80), while in HFpEF, CKD only (HR: 2.54; 95%\u00a0CI: 1.46-4.41) but not DM only (HR: 1.01; 95%\u00a0CI: 0.52-1.95) was associated with increased risk (interaction  CONCLUSIONS: Combined DM and CKD adversely effected outcomes independently of HF subtype, with CKD a consistent predictor of worse outcomes.",
+    "protein": "O14964",
+    "pmid": 37614542,
+    "manual_label": "associated",
+    "model_confidence": 0.991
+  },
+  {
+    "sentence": "The db/db mouse model provides a relevant preclinical tool for future research as it mimics human T2D-associated HFpEF and STEMI outcome.",
+    "protein": "P48357",
+    "pmid": 40483445,
+    "manual_label": "associated",
+    "model_confidence": 0.99
+  },
+  {
+    "sentence": "Deep clinical phenotyping, imaging, multiomics and centrally held national electronic health record data will be integrated at scale, in order to reclassify HFpEF into distinct subgroups, improve understanding of disease mechanisms and identify new biological pathways and molecular targets.",
+    "protein": "O14497",
+    "pmid": 37827557,
+    "manual_label": "associated",
+    "model_confidence": 0.987
+  },
+  {
+    "sentence": "N-terminal pro-B-type natriuretic peptide, troponin I, pro-collagen III N-terminal peptide, C-telopeptide for type I collagen, uric acid, cystatin-c, and galectin-3 (p <0.05 for all) levels were higher in anemic HFpEF patients.",
+    "protein": "P17931",
+    "pmid": 32307089,
+    "manual_label": "associated",
+    "model_confidence": 0.989
+  }
+]

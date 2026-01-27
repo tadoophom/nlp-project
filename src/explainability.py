@@ -11,8 +11,8 @@ class ExplanationResult:
     sentence: str
     prediction: str
     confidence: float
-    top_positive_words: list
-    top_negative_words: list
+    top_associated_words: list
+    top_not_associated_words: list
     explanation: str
 
 
@@ -26,19 +26,19 @@ def explain_prediction(sentence: str, classifier) -> ExplanationResult:
     label, confidence = classifier.predict(sentence)
     
     # Define trigger patterns for each class
-    POSITIVE_TRIGGERS = [
+    ASSOCIATED_TRIGGERS = [
         'elevated', 'increased', 'higher', 'associated', 'correlated',
         'predictor', 'marker', 'linked', 'contributes', 'role',
         'significant', 'risk factor', 'promotes', 'induces'
     ]
     
-    NEGATIVE_TRIGGERS = [
+    NOT_ASSOCIATED_TRIGGERS = [
         'no significant', 'not associated', 'failed', 'did not',
         'no correlation', 'no relationship', 'not significantly',
         'no difference', 'unclear', 'unknown', 'no evidence'
     ]
     
-    NO_ASSOC_TRIGGERS = [
+    INCIDENTAL_TRIGGERS = [
         'we aimed', 'we sought', 'we investigated', 'methods',
         'enrolled', 'recruited', 'patients were', 'retrospective',
         'prospective', 'measured', 'analyzed', 'between january'
@@ -47,38 +47,38 @@ def explain_prediction(sentence: str, classifier) -> ExplanationResult:
     sent_lower = sentence.lower()
     
     # Find matching triggers
-    found_positive = [t for t in POSITIVE_TRIGGERS if t in sent_lower]
-    found_negative = [t for t in NEGATIVE_TRIGGERS if t in sent_lower]
-    found_no_assoc = [t for t in NO_ASSOC_TRIGGERS if t in sent_lower]
+    found_associated = [t for t in ASSOCIATED_TRIGGERS if t in sent_lower]
+    found_not_associated = [t for t in NOT_ASSOCIATED_TRIGGERS if t in sent_lower]
+    found_incidental = [t for t in INCIDENTAL_TRIGGERS if t in sent_lower]
     
     # Build explanation based on prediction
-    if label == 'positive':
-        triggers = found_positive[:3] if found_positive else ['context-based']
+    if label == 'associated':
+        triggers = found_associated[:3] if found_associated else ['context-based']
         explanation = f"Predicted '{label}' ({confidence:.1%}). "
         explanation += f"Triggers: {', '.join(triggers)}"
-        top_positive = [(t, '1.0') for t in triggers]
-        top_negative = [(t, '0.5') for t in found_negative[:2]]
+        top_associated = [(t, '1.0') for t in triggers]
+        top_not_associated = [(t, '0.5') for t in found_not_associated[:2]]
     
-    elif label == 'negative':
-        triggers = found_negative[:3] if found_negative else ['semantic negation']
+    elif label == 'not_associated':
+        triggers = found_not_associated[:3] if found_not_associated else ['semantic negation']
         explanation = f"Predicted '{label}' ({confidence:.1%}). "
         explanation += f"Triggers: {', '.join(triggers)}"
-        top_positive = [(t, '1.0') for t in triggers]
-        top_negative = [(t, '0.5') for t in found_positive[:2]]
+        top_associated = [(t, '1.0') for t in triggers]
+        top_not_associated = [(t, '0.5') for t in found_associated[:2]]
     
-    else:  # no_association
-        triggers = found_no_assoc[:3] if found_no_assoc else ['methodology language']
+    else:  # incidental
+        triggers = found_incidental[:3] if found_incidental else ['methodology language']
         explanation = f"Predicted '{label}' ({confidence:.1%}). "
         explanation += f"Triggers: {', '.join(triggers)}"
-        top_positive = [(t, '1.0') for t in triggers]
-        top_negative = []
+        top_associated = [(t, '1.0') for t in triggers]
+        top_not_associated = []
     
     return ExplanationResult(
         sentence=sentence,
         prediction=label,
         confidence=confidence,
-        top_positive_words=top_positive,
-        top_negative_words=top_negative,
+        top_associated_words=top_associated,
+        top_not_associated_words=top_not_associated,
         explanation=explanation
     )
 
@@ -99,7 +99,7 @@ def generate_explanation_report(sentences: list, classifier, output_path: str):
         writer.writerow(['sentence', 'prediction', 'confidence', 'key_words', 'explanation'])
         
         for r in results:
-            key_words = ', '.join(w for w, _ in r.top_positive_words)
+            key_words = ', '.join(w for w, _ in r.top_associated_words)
             writer.writerow([
                 r.sentence[:200],
                 r.prediction,

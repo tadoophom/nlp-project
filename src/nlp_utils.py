@@ -95,19 +95,18 @@ def _is_neg(span) -> bool:
 
 
 def classify_span(span):
-    """Return Positive / Negative / Neutral for a span."""
+    """Return Associated / Not_Associated / Incidental for a span."""
     if hasattr(span._, "is_negated") and span._.is_negated:
-        return "Negative"
+        return "Not_Associated"
     if (
         hasattr(span._, "is_uncertain") and span._.is_uncertain
     ) or (
         hasattr(span._, "is_hypothetical") and span._.is_hypothetical
     ):
-        return "Neutral"
-    # Heuristic negation
+        return "Incidental"
     if _is_neg(span):
-        return "Negative"
-    return "Positive"
+        return "Not_Associated"
+    return "Associated"
 
 def _confidence_for(span) -> float:
     """Confidence score in [0.5, 1.0] based on available signals."""
@@ -263,8 +262,15 @@ def classify_with_bert(sentence: str, model_path: Optional[str] = None) -> Tuple
     classifier = load_bert_classifier(model_path)
     label, conf = classifier.predict(sentence)
     # Map BERT labels to existing pipeline labels
-    label_map = {"positive": "Positive", "negative": "Negative", "no_association": "Neutral"}
-    return label_map.get(label, "Neutral"), conf
+    label_map = {
+        "associated": "Associated",
+        "not_associated": "Not_Associated",
+        "incidental": "Incidental",
+        "positive": "Associated",
+        "negative": "Not_Associated",
+        "no_association": "Incidental",
+    }
+    return label_map.get(label, "Incidental"), conf
 
 
 def classify_span_hybrid(

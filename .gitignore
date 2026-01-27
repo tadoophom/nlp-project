@@ -13,6 +13,7 @@ __MACOSX/
 
 # Build/packaging artifacts
 *.egg-info/
+node_modules/
 
 # Local databases
 *.db

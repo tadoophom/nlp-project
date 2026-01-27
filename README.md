@@ -1,17 +1,6 @@
 # HFpEF Protein-Disease Classification
 
-SciBERT-based classifier for filtering CaseOLAP protein results. Identifies whether scientific sentences describe positive, negative, or no association between proteins and HFpEF.
-
-## Results
-
-| Model | Accuracy |
-|-------|----------|
-| Rule-based | 40.2% |
-| PubMedBERT | 71.9% |
-| SciBERT v4 | 97.0% |
-| Multi-label | 97.8% |
-
-Held-out validation: **98%**
+SciBERT-based classifier for filtering CaseOLAP protein results. Identifies whether scientific sentences describe associated, not_associated, or incidental relationships between proteins and HFpEF.
 
 ## Project Structure
 
@@ -30,15 +19,21 @@ Held-out validation: **98%**
 │       └── final_comparison.py    # Generate dashboard
 │
 ├── models/                   # Trained models (git-ignored)
-├── data/                     # Training data (git-ignored)
-└── deliverable_email/        # Reports and visualizations
+├── data/                     # Datasets and benchmarks (git-ignored)
+│   ├── annotation/           # Manual labeling materials
+│   ├── benchmarks/           # Benchmark datasets + reports
+│   ├── corpus/               # HFpEF corpus exports
+│   ├── raw/                  # Raw inputs
+│   ├── review/               # Review queues
+│   └── splits/               # Train/holdout splits
+└── deliverable_email/        # Date-stamped email attachments
 ```
 
 ## Usage
 
 ```bash
 # Train model
-uv run python scripts/training/train_bert.py --data data/labeled.json --output models/new-model
+uv run python scripts/training/train_bert.py --data data/splits/train.json --output models/new-model
 
 # Evaluate
 uv run python scripts/evaluation/evaluate_holdout.py
@@ -54,7 +49,7 @@ from src.bert_classifier import PubMedBERTClassifier
 
 clf = PubMedBERTClassifier(model_path="models/scibert-hfpef-v4/final")
 label, confidence = clf.predict("BNP is elevated in HFpEF patients.")
-# ('positive', 0.99)
+# ('associated', 0.99)
 ```
 
 ## CaseOLAP Integration
@@ -64,5 +59,5 @@ from src.caseolap_filter import CaseOLAPFilter
 
 filter = CaseOLAPFilter()
 filtered_df = filter.filter_dataframe(caseolap_results)
-# Removes proteins with negative/weak evidence
+# Removes proteins with not_associated or incidental evidence
 ```

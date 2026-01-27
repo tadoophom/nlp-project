@@ -1,5 +1,6 @@
 """Generate final comparison dashboard with all models."""
 import json
+from collections import Counter
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -18,14 +19,18 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 
 def get_rule_predictions(sentences, nlp):
-    label_map = {"Positive": "positive", "Negative": "negative", "Neutral": "no_association"}
+    label_map = {
+        "Associated": "associated",
+        "Not_Associated": "not_associated",
+        "Incidental": "incidental",
+    }
     preds = []
     for sent in sentences:
         doc = nlp(sent)
         spans = list(doc.sents)
         span = spans[0] if spans else doc[:]
         pred = classify_span(span)
-        preds.append(label_map.get(pred, "no_association"))
+        preds.append(label_map.get(pred, "incidental"))
     return preds
 
 
@@ -35,7 +40,7 @@ def get_multilabel_predictions(sentences, model_path):
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
     model.eval()
     
-    labels = ['positive', 'negative', 'no_association']
+    labels = ['associated', 'not_associated', 'incidental']
     preds = []
     confs = []
     multi_preds = []
@@ -48,7 +53,7 @@ def get_multilabel_predictions(sentences, model_path):
         
         # Multi-label: threshold at 0.5
         active = [labels[i] for i, p in enumerate(probs) if p > 0.5]
-        multi_preds.append(active if active else ['no_association'])
+        multi_preds.append(active if active else ['incidental'])
         
         # Single label (highest prob) for comparison
         idx = probs.argmax().item()
@@ -60,11 +65,12 @@ def get_multilabel_predictions(sentences, model_path):
 
 def main():
     # Load data
-    with open("data/labeled.json") as f:
+    with open("data/splits/train.json") as f:
         data = json.load(f)
     
     sentences = [d['sentence'] for d in data]
     true_labels = [d['label'] for d in data]
+    label_counts = Counter(true_labels)
     
     print(f"Evaluating on {len(sentences)} samples...")
     
@@ -96,7 +102,7 @@ def main():
     for name, preds in models.items():
         acc = accuracy_score(true_labels, preds)
         report = classification_report(true_labels, preds, output_dict=True, zero_division=0)
-        cm = confusion_matrix(true_labels, preds, labels=['positive', 'negative', 'no_association'])
+        cm = confusion_matrix(true_labels, preds, labels=['associated', 'not_associated', 'incidental'])
         results[name] = {'accuracy': acc, 'report': report, 'cm': cm}
         print(f"  {name}: {acc:.1%}")
     
@@ -126,7 +132,7 @@ def main():
     
     # 2. F1 scores by class
     ax2 = fig.add_subplot(3, 4, 2)
-    classes = ['positive', 'negative', 'no_association']
+    classes = ['associated', 'not_associated', 'incidental']
     x = np.arange(len(classes))
     width = 0.2
     
@@ -136,15 +142,16 @@ def main():
     
     ax2.set_ylabel('F1 Score', fontweight='bold')
     ax2.set_xticks(x + width*1.5)
-    ax2.set_xticklabels(['Positive', 'Negative', 'No Assoc'])
+    ax2.set_xticklabels(['Associated', 'Not Associated', 'Incidental'])
     ax2.legend(loc='lower right', fontsize=7)
     ax2.set_ylim(0, 1.1)
     ax2.set_title('F1 Score by Class', fontweight='bold')
     
     # 3. Dataset composition
     ax3 = fig.add_subplot(3, 4, 3)
-    label_counts = pd.Series(true_labels).value_counts()
-    ax3.pie(label_counts.values, labels=label_counts.index, autopct='%1.0f%%',
+    pie_labels = ['associated', 'not_associated', 'incidental']
+    pie_values = [label_counts.get(l, 0) for l in pie_labels]
+    ax3.pie(pie_values, labels=pie_labels, autopct='%1.0f%%',
             colors=['#2ecc71', '#e74c3c', '#95a5a6'], startangle=90)
     ax3.set_title(f'Dataset (n={len(sentences)})', fontweight='bold')
     
@@ -169,8 +176,8 @@ def main():
         
         ax.set_xticks(range(3))
         ax.set_yticks(range(3))
-        ax.set_xticklabels(['Pos', 'Neg', 'No'], fontsize=9)
-        ax.set_yticklabels(['Pos', 'Neg', 'No'], fontsize=9)
+        ax.set_xticklabels(['Assoc', 'Not', 'Inc'], fontsize=9)
+        ax.set_yticklabels(['Assoc', 'Not', 'Inc'], fontsize=9)
         
         for ii in range(3):
             for jj in range(3):
@@ -205,35 +212,34 @@ Total: +{total:.1f}%"""
             verticalalignment='center', fontfamily='monospace')
     ax9.set_title('Accuracy Gains', fontweight='bold')
     
-    # 10. What failed
+    # 10. Per-class recall
     ax10 = fig.add_subplot(3, 4, 10)
     ax10.axis('off')
     
-    fail_text = f"""Rule-based:
-  Missed negations, 0% on
-  methodology sentences
-
-PubMedBERT:
-  0% on no_association
-  (methodology sentences)
-
-SciBERT fixed both."""
+    recall_lines = []
+    for name in names:
+        report = results[name]['report']
+        recall_lines.append(
+            f"{name}: A {report['associated']['recall']:.2f} | "
+            f"N {report['not_associated']['recall']:.2f} | "
+            f"I {report['incidental']['recall']:.2f}"
+        )
+    fail_text = "Recall by class\n" + "\n".join(recall_lines)
     ax10.text(0.1, 0.5, fail_text, transform=ax10.transAxes, fontsize=11,
             verticalalignment='center', fontfamily='monospace')
-    ax10.set_title('Why Models Failed', fontweight='bold')
+    ax10.set_title('Recall by Class', fontweight='bold')
     
     # 11. Dataset
     ax11 = fig.add_subplot(3, 4, 11)
     ax11.axis('off')
     
-    details_text = """Training: 1,481 sentences
-
-positive:       1,257 (85%)
-negative:          80 (5%)
-no_association:   144 (10%)
-
-Held-out test: 100 sentences
-Held-out accuracy: 96%"""
+    total = len(sentences)
+    details_text = (
+        f"Dataset: {total} sentences\n\n"
+        f"associated:      {label_counts.get('associated', 0)} ({label_counts.get('associated', 0)/total:.0%})\n"
+        f"not_associated:  {label_counts.get('not_associated', 0)} ({label_counts.get('not_associated', 0)/total:.0%})\n"
+        f"incidental:      {label_counts.get('incidental', 0)} ({label_counts.get('incidental', 0)/total:.0%})"
+    )
     ax11.text(0.1, 0.5, details_text, transform=ax11.transAxes, fontsize=11,
             verticalalignment='center', fontfamily='monospace')
     ax11.set_title('Dataset', fontweight='bold')
@@ -242,15 +248,7 @@ Held-out accuracy: 96%"""
     ax12 = fig.add_subplot(3, 4, 12)
     ax12.axis('off')
     
-    filter_text = f"""Proteins analyzed: 88
-Kept: 73 (positive evidence)
-Removed: 15
-
-  4 - negative findings
- 11 - methodology only
-
-Review queue: 60 sentences
-(low confidence)"""
+    filter_text = "Filtering results not computed.\nRun CaseOLAP filtering to populate."
     ax12.text(0.1, 0.5, filter_text, transform=ax12.transAxes, fontsize=11,
             verticalalignment='center', fontfamily='monospace')
     ax12.set_title('Protein Filtering', fontweight='bold')
@@ -258,12 +256,14 @@ Review queue: 60 sentences
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     
     # Save
-    output_path = "deliverable_email/final_comparison_dashboard.png"
-    plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white')
+    output_dir = Path("deliverable_email") / "comparisons"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "final_comparison_dashboard.png"
+    plt.savefig(str(output_path), dpi=150, bbox_inches='tight', facecolor='white')
     print(f"\nSaved to {output_path}")
     
     # Save metrics to text
-    with open("deliverable_email/final_metrics.txt", "w") as f:
+    with open(output_dir / "final_metrics.txt", "w") as f:
         f.write("HFpEF Protein-Disease Classification Results\n")
         f.write("=" * 50 + "\n\n")
         

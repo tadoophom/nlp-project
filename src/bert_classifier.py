@@ -9,8 +9,8 @@ from typing import Dict, List, Literal, Optional, Tuple
 import torch
 from torch.utils.data import Dataset
 
-RelationLabel = Literal["positive", "negative", "no_association"]
-LABEL2ID: Dict[str, int] = {"positive": 0, "negative": 1, "no_association": 2}
+RelationLabel = Literal["associated", "not_associated", "incidental"]
+LABEL2ID: Dict[str, int] = {"associated": 0, "not_associated": 1, "incidental": 2}
 ID2LABEL: Dict[int, str] = {v: k for k, v in LABEL2ID.items()}
 
 # Section headers that confuse the model

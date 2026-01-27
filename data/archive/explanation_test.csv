@@ -1,0 +1,9 @@
+sentence,prediction,confidence,key_words,explanation
+BNP levels are significantly elevated in HFpEF patients.,positive,0.99,"elevated, significant","Predicted 'positive' (98.9%). Triggers: elevated, significant"
+The study found no significant association between troponin and outcomes.,negative,1.00,no significant,Predicted 'negative' (99.7%). Triggers: no significant
+We enrolled 200 patients with HFpEF from January to December 2023.,no_association,0.99,enrolled,Predicted 'no_association' (98.7%). Triggers: enrolled
+NT-proBNP is a strong predictor of mortality in heart failure.,positive,0.99,predictor,Predicted 'positive' (99.0%). Triggers: predictor
+There was no correlation between galectin-3 and disease progression.,negative,1.00,no correlation,Predicted 'negative' (99.8%). Triggers: no correlation
+Elevated CRP was associated with increased risk of adverse events.,positive,0.99,"elevated, increased, associated","Predicted 'positive' (99.1%). Triggers: elevated, increased, associated"
+The analysis failed to demonstrate a relationship between TNF-alpha and prognosis.,negative,1.00,failed,Predicted 'negative' (99.7%). Triggers: failed
+Blood samples were collected and analyzed for biomarker levels.,no_association,0.98,analyzed,Predicted 'no_association' (98.4%). Triggers: analyzed

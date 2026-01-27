@@ -6,7 +6,7 @@ Measures TRUE accuracy on data the model has never seen.
 This is the real test of generalization.
 
 USAGE:
-    uv run python scripts/evaluate_holdout.py
+    uv run python scripts/evaluation/evaluate_holdout.py
 """
 import json
 from pathlib import Path
@@ -37,14 +37,23 @@ def evaluate_holdout(
     # Load model
     classifier = PubMedBERTClassifier(model_path=str(model_path))
     
+    label_map = {
+        "associated": "associated",
+        "not_associated": "not_associated",
+        "incidental": "incidental",
+        "positive": "associated",
+        "negative": "not_associated",
+        "no_association": "incidental",
+    }
+
     # Get predictions
     sentences = [d['sentence'] for d in labeled]
-    true_labels = [d['manual_label'] for d in labeled]
+    true_labels = [label_map.get(d['manual_label'], d['manual_label']) for d in labeled]
     
     pred_labels = []
     for sent in sentences:
         label, conf = classifier.predict(sent)
-        pred_labels.append(label)
+        pred_labels.append(label_map.get(label, label))
     
     # Calculate metrics
     accuracy = accuracy_score(true_labels, pred_labels)
@@ -68,6 +77,6 @@ def evaluate_holdout(
 
 if __name__ == "__main__":
     evaluate_holdout(
-        test_path=Path("data/holdout_test.json"),
+        test_path=Path("data/splits/holdout.json"),
         model_path=Path("models/scibert-hfpef-v4/final"),
     )

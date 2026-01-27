@@ -3,12 +3,12 @@ CaseOLAP Pipeline Integration - Automatic Protein Filtering.
 
 PURPOSE:
 Integrates the SciBERT classifier directly into the CaseOLAP pipeline
-to automatically filter out proteins with weak/negative associations.
+to automatically filter out proteins with weak or not_associated associations.
 
 HOW IT WORKS:
 1. Takes CaseOLAP output (protein rankings with evidence sentences)
 2. Classifies each evidence sentence
-3. Filters out proteins where evidence is negative/no_association
+3. Filters out proteins where evidence is not_associated/incidental
 4. Returns cleaned protein rankings with confidence scores
 
 USAGE:
@@ -41,9 +41,9 @@ class FilterResult:
     """Result of filtering a single protein."""
     protein_id: str
     included: bool
-    positive_mentions: int
-    negative_mentions: int
-    no_association_mentions: int
+    associated_mentions: int
+    not_associated_mentions: int
+    incidental_mentions: int
     avg_confidence: float
     reason: str
 
@@ -53,25 +53,25 @@ class CaseOLAPFilter:
     Filter CaseOLAP protein results using SciBERT classification.
     
     Removes proteins where the evidence sentences indicate:
-    - Negative findings (no association found)
-    - Methodology only (no claim about association)
+    - Not associated findings (no association found)
+    - Incidental mentions (no claim about association)
     """
     
     def __init__(
         self,
         model_path: str = "models/scibert-hfpef-v4/final",
         confidence_threshold: float = 0.6,
-        require_positive_majority: bool = True
+        require_associated_majority: bool = True
     ):
         """
         Args:
             model_path: Path to trained SciBERT model
             confidence_threshold: Minimum confidence to trust prediction
-            require_positive_majority: If True, protein needs >50% positive mentions
+            require_associated_majority: If True, protein needs >50% associated mentions
         """
         self.classifier = PubMedBERTClassifier(model_path=model_path)
         self.confidence_threshold = confidence_threshold
-        self.require_positive_majority = require_positive_majority
+        self.require_associated_majority = require_associated_majority
         logger.info(f"CaseOLAPFilter initialized with model: {model_path}")
     
     def classify_sentence(self, sentence: str) -> tuple[str, float]:
@@ -92,56 +92,56 @@ class CaseOLAPFilter:
             return FilterResult(
                 protein_id=protein_id,
                 included=False,
-                positive_mentions=0,
-                negative_mentions=0,
-                no_association_mentions=0,
+                associated_mentions=0,
+                not_associated_mentions=0,
+                incidental_mentions=0,
                 avg_confidence=0.0,
                 reason="No evidence sentences provided"
             )
         
         # Classify all sentences
-        positive = 0
-        negative = 0
-        no_association = 0
+        associated = 0
+        not_associated = 0
+        incidental = 0
         confidences = []
         
         for sent in evidence_sentences:
             label, conf = self.classify_sentence(sent)
             confidences.append(conf)
             
-            if label == 'positive':
-                positive += 1
-            elif label == 'negative':
-                negative += 1
+            if label == 'associated':
+                associated += 1
+            elif label == 'not_associated':
+                not_associated += 1
             else:
-                no_association += 1
+                incidental += 1
         
         total = len(evidence_sentences)
         avg_conf = sum(confidences) / len(confidences)
         
         # Decision logic
-        if self.require_positive_majority:
-            included = positive > (negative + no_association)
+        if self.require_associated_majority:
+            included = associated > (not_associated + incidental)
         else:
-            included = positive > 0 and negative == 0
+            included = associated > 0 and not_associated == 0
         
         # Generate reason
         if included:
-            reason = f"Included: {positive}/{total} positive mentions ({positive/total:.0%})"
+            reason = f"Included: {associated}/{total} associated mentions ({associated/total:.0%})"
         else:
-            if negative > 0:
-                reason = f"Excluded: {negative}/{total} negative findings"
-            elif no_association >= positive:
-                reason = f"Excluded: {no_association}/{total} methodology/no claim"
+            if not_associated > 0:
+                reason = f"Excluded: {not_associated}/{total} not associated findings"
+            elif incidental >= associated:
+                reason = f"Excluded: {incidental}/{total} incidental/no claim"
             else:
-                reason = f"Excluded: insufficient positive evidence ({positive}/{total})"
+                reason = f"Excluded: insufficient associated evidence ({associated}/{total})"
         
         return FilterResult(
             protein_id=protein_id,
             included=included,
-            positive_mentions=positive,
-            negative_mentions=negative,
-            no_association_mentions=no_association,
+            associated_mentions=associated,
+            not_associated_mentions=not_associated,
+            incidental_mentions=incidental,
             avg_confidence=avg_conf,
             reason=reason
         )
@@ -163,7 +163,7 @@ class CaseOLAPFilter:
             score_col: Column name for CaseOLAP scores
         
         Returns:
-            Filtered DataFrame with only valid positive associations,
+            Filtered DataFrame with only valid associated mentions,
             plus new columns: association_label, association_confidence, filter_reason
         """
         logger.info(f"Filtering {len(df)} rows...")
@@ -222,9 +222,9 @@ class CaseOLAPFilter:
                 'protein': protein_id,
                 'included': result.included,
                 'total_mentions': len(sentences),
-                'positive_mentions': result.positive_mentions,
-                'negative_mentions': result.negative_mentions,
-                'no_association_mentions': result.no_association_mentions,
+                'associated_mentions': result.associated_mentions,
+                'not_associated_mentions': result.not_associated_mentions,
+                'incidental_mentions': result.incidental_mentions,
                 'avg_confidence': f"{result.avg_confidence:.2f}",
                 'reason': result.reason
             })

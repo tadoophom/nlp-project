@@ -6,9 +6,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 st.set_page_config(page_title="BERT vs Rule-based", layout="wide")
 st.title("BERT vs Rule-based Classification")
@@ -47,15 +44,22 @@ def classify_bert(sentence: str) -> tuple[str, float]:
     """Classify using PubMedBERT."""
     classifier = load_bert_classifier()
     label, conf = classifier.predict(sentence)
-    label_map = {"positive": "Positive", "negative": "Negative", "no_association": "Neutral"}
-    return label_map.get(label, "Neutral"), conf
+    label_map = {
+        "associated": "Associated",
+        "not_associated": "Not_Associated",
+        "incidental": "Incidental",
+        "positive": "Associated",
+        "negative": "Not_Associated",
+        "no_association": "Incidental",
+    }
+    return label_map.get(label, "Incidental"), conf
 
 
 # Check BERT availability
 if not BERT_AVAILABLE:
     st.warning(
         "PubMedBERT model not found. Train the model first:\n"
-        "```bash\nuv run python scripts/train_bert.py --data data/labeled.json --output models/pubmedbert-hfpef\n```"
+        "```bash\nuv run python scripts/training/train_bert.py --data data/splits/train.json --output models/pubmedbert-hfpef\n```"
     )
 
 # Sidebar with model info
@@ -74,8 +78,7 @@ with st.sidebar:
     
     st.divider()
     st.markdown("**Performance Summary**")
-    st.metric("Rule-based Accuracy", "70.0%")
-    st.metric("BERT Accuracy", "93.8%", delta="+23.8%")
+    st.caption("Run the evaluation script to generate updated metrics.")
 
 # Main content
 tab1, tab2, tab3 = st.tabs(["Single Sentence", "Batch Analysis", "Performance Metrics"])
@@ -111,7 +114,7 @@ with tab1:
         with col1:
             st.markdown("### Rule-based")
             rule_label, rule_conf = classify_rule_based(sentence)
-            color = {"Positive": "green", "Negative": "red", "Neutral": "orange"}[rule_label]
+            color = {"Associated": "green", "Not_Associated": "red", "Incidental": "orange"}[rule_label]
             st.markdown(f"**Classification:** :{color}[{rule_label}]")
             st.progress(rule_conf, text=f"Confidence: {rule_conf:.1%}")
         
@@ -119,7 +122,7 @@ with tab1:
             st.markdown("### PubMedBERT")
             if BERT_AVAILABLE:
                 bert_label, bert_conf = classify_bert(sentence)
-                color = {"Positive": "green", "Negative": "red", "Neutral": "orange"}[bert_label]
+                color = {"Associated": "green", "Not_Associated": "red", "Incidental": "orange"}[bert_label]
                 st.markdown(f"**Classification:** :{color}[{bert_label}]")
                 st.progress(bert_conf, text=f"Confidence: {bert_conf:.1%}")
             else:
@@ -214,107 +217,5 @@ with tab2:
 
 with tab3:
     st.subheader("Performance Metrics")
-    st.caption("Based on evaluation of 290 labeled sentences")
-    
-    # Accuracy comparison
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig_acc = go.Figure(data=[
-            go.Bar(
-                x=["Rule-based", "PubMedBERT"],
-                y=[70.0, 93.8],
-                marker_color=["#e74c3c", "#27ae60"],
-                text=["70.0%", "93.8%"],
-                textposition="outside",
-            )
-        ])
-        fig_acc.update_layout(
-            title="Overall Accuracy",
-            yaxis_title="Accuracy (%)",
-            yaxis_range=[0, 105],
-            showlegend=False,
-            height=400,
-        )
-        st.plotly_chart(fig_acc, use_container_width=True)
-    
-    with col2:
-        # F1 by class
-        classes = ["Positive", "Negative", "No Assoc."]
-        rule_f1 = [0.81, 0.53, 0.00]
-        bert_f1 = [0.95, 0.99, 0.86]
-        
-        fig_f1 = go.Figure(data=[
-            go.Bar(name="Rule-based", x=classes, y=rule_f1, marker_color="#e74c3c"),
-            go.Bar(name="PubMedBERT", x=classes, y=bert_f1, marker_color="#27ae60"),
-        ])
-        fig_f1.update_layout(
-            title="F1 Score by Class",
-            yaxis_title="F1 Score",
-            yaxis_range=[0, 1.1],
-            barmode="group",
-            height=400,
-        )
-        st.plotly_chart(fig_f1, use_container_width=True)
-    
-    # Confusion matrices
-    st.subheader("Confusion Matrices")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        cm_rule = [[186, 2, 0], [27, 17, 0], [57, 1, 0]]
-        fig_cm_rule = px.imshow(
-            cm_rule,
-            labels=dict(x="Predicted", y="True", color="Count"),
-            x=["Positive", "Negative", "No Assoc."],
-            y=["Positive", "Negative", "No Assoc."],
-            color_continuous_scale="Reds",
-            text_auto=True,
-        )
-        fig_cm_rule.update_layout(title="Rule-based", height=350)
-        st.plotly_chart(fig_cm_rule, use_container_width=True)
-    
-    with col2:
-        cm_bert = [[174, 1, 13], [0, 44, 0], [4, 0, 54]]
-        fig_cm_bert = px.imshow(
-            cm_bert,
-            labels=dict(x="Predicted", y="True", color="Count"),
-            x=["Positive", "Negative", "No Assoc."],
-            y=["Positive", "Negative", "No Assoc."],
-            color_continuous_scale="Greens",
-            text_auto=True,
-        )
-        fig_cm_bert.update_layout(title="PubMedBERT", height=350)
-        st.plotly_chart(fig_cm_bert, use_container_width=True)
-    
-    # Key insights
-    st.subheader("Key Insights")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-        **Rule-based Limitations:**
-        - Never predicts "No Association" (0% recall)
-        - Relies on explicit negation words
-        - Misses semantic negation patterns
-        - High false positive rate for positive class
-        """)
-    
-    with col2:
-        st.markdown("""
-        **PubMedBERT Strengths:**
-        - Understands biomedical context
-        - Detects semantic negation
-        - Handles uncertain language
-        - Balanced performance across classes
-        """)
-    
-    # Improvement metrics
-    st.subheader("Improvement Summary")
-    improvements = pd.DataFrame({
-        "Metric": ["Accuracy", "Macro F1", "Weighted F1", "Negative Detection"],
-        "Rule-based": ["70.0%", "0.45", "0.61", "0%"],
-        "PubMedBERT": ["93.8%", "0.93", "0.94", "86%"],
-        "Improvement": ["+23.8%", "+48.7%", "+33.2%", "+86%"],
-    })
-    st.dataframe(improvements, use_container_width=True, hide_index=True)
+    st.caption("No baked-in metrics. Generate fresh results with the evaluation script.")
+    st.code("uv run python scripts/evaluation/final_comparison.py", language="bash")

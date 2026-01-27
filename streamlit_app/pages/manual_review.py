@@ -43,7 +43,11 @@ col1, col2 = st.columns(2)
 with col1:
     show_only = st.radio("Show", ["All", "Unreviewed only", "Reviewed only"], horizontal=True)
 with col2:
-    filter_class = st.multiselect("Classification", ["Positive", "Negative", "Neutral"], default=["Positive", "Negative", "Neutral"])
+    filter_class = st.multiselect(
+        "Classification",
+        ["Associated", "Not_Associated", "Incidental"],
+        default=["Associated", "Not_Associated", "Incidental"],
+    )
 
 st.divider()
 
@@ -61,7 +65,7 @@ for idx, row in df.iterrows():
     if row["classification"] not in filter_class:
         continue
     
-    status = "✓" if existing else "○"
+    status = "x" if existing else "o"
     
     with st.expander(f"{status} {row['keyword']} — {row['classification']} (conf: {row['confidence']:.2f})"):
         st.markdown(f"**Sentence:** {row['sentence']}")
@@ -70,8 +74,8 @@ for idx, row in df.iterrows():
         with col1:
             label = st.radio(
                 "Your label:",
-                ["Positive", "Negative", "Neutral"],
-                index=["Positive", "Negative", "Neutral"].index(
+                ["Associated", "Not_Associated", "Incidental"],
+                index=["Associated", "Not_Associated", "Incidental"].index(
                     existing["label"] if existing else row["classification"]
                 ),
                 key=f"label_{review_key}",
@@ -109,7 +113,7 @@ if st.session_state.reviews:
     with col2:
         if len(review_df) >= 3:
             fig, ax = plt.subplots(figsize=(5, 4))
-            labels = ["Positive", "Negative", "Neutral"]
+            labels = ["Associated", "Not_Associated", "Incidental"]
             present_labels = [l for l in labels if l in review_df["label"].values or l in review_df["original"].values]
             cm = confusion_matrix(
                 review_df["label"], 

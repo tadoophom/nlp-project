@@ -69,7 +69,7 @@ LABORATORY DATA: White blood cell count was 18.4 × 10⁹/L with 89% neutrophils
 
 IMAGING: Posterior-anterior and lateral chest radiograph demonstrated dense right lower lobe consolidation with air bronchograms (POSITIVE: consolidation confirmed), consistent with lobar pneumonia. No evidence of pleural effusion was identified (NEGATIVE: pleural effusion ruled out). No cavitation or lymphadenopathy was observed (NEGATIVE: cavitation absent). No pneumothorax was observed.
 
-MICROBIOLOGY: Blood cultures (2 sets) were obtained prior to antibiotic administration and are pending (NEUTRAL: cultures pending, not yet confirmed). Sputum Gram stain revealed >25 polymorphonuclear cells and <10 epithelial cells per low power field with gram-positive diplococci in pairs. Sputum culture is pending final identification. Legionella urinary antigen was negative (NEGATIVE: Legionella ruled out). Streptococcus pneumoniae urinary antigen returned positive (POSITIVE: S. pneumoniae confirmed).
+MICROBIOLOGY: Blood cultures (2 sets) were obtained prior to antibiotic administration and are pending (INCIDENTAL: cultures pending, not yet confirmed). Sputum Gram stain revealed >25 polymorphonuclear cells and <10 epithelial cells per low power field with gram-positive diplococci in pairs. Sputum culture is pending final identification. Legionella urinary antigen was negative (NOT ASSOCIATED: Legionella ruled out). Streptococcus pneumoniae urinary antigen returned positive (ASSOCIATED: S. pneumoniae confirmed).
 
 DIFFERENTIAL DIAGNOSIS: The constellation of findings is most consistent with community-acquired pneumonia. Alternative diagnoses such as pulmonary embolism, lung malignancy, and tuberculosis were considered but deemed unlikely (NEGATIVE: alternative diagnoses excluded). The patient has no history of prior pneumonia episodes (NEUTRAL: historical reference). Family history is notable for a brother who was hospitalized for pneumonia last year (NEUTRAL: family history, not patient).
 
@@ -87,7 +87,7 @@ PHYSICAL EXAMINATION: On arrival, she appeared pale and diaphoretic (POSITIVE: d
 
 ELECTROCARDIOGRAM: Twelve-lead ECG obtained 8 minutes after arrival demonstrated sinus rhythm at 96 bpm with ST-segment elevation of 3-4mm in leads V2-V4 (POSITIVE: ST-elevation confirmed) with reciprocal ST depression in leads II, III, and aVF. Q waves were not present (NEGATIVE: Q waves absent, suggesting no prior infarct). These findings are consistent with acute anterior ST-elevation myocardial infarction (STEMI) with likely proximal left anterior descending artery (LAD) occlusion (POSITIVE: STEMI diagnosed).
 
-CARDIAC BIOMARKERS: Initial high-sensitivity troponin I was significantly elevated at 4,247 ng/L (normal <14 ng/L in females) (POSITIVE: troponin elevated). Point-of-care troponin at bedside was also markedly positive. NT-proBNP was 892 pg/mL (mildly elevated, suggesting no significant heart failure at this time—NEGATIVE: heart failure excluded).
+CARDIAC BIOMARKERS: Initial high-sensitivity troponin I was significantly elevated at 4,247 ng/L (normal <14 ng/L in females) (ASSOCIATED: troponin elevated). Point-of-care troponin at bedside was also markedly positive. NT-proBNP was 892 pg/mL (mildly elevated, suggesting no significant heart failure at this time—NOT ASSOCIATED: heart failure excluded).
 
 MANAGEMENT: The STEMI protocol was immediately activated. Loading doses of aspirin 325mg (additional to home dose—POSITIVE: aspirin given), ticagrelor 180mg, and unfractionated heparin 60 units/kg bolus followed by 12 units/kg/hr infusion (POSITIVE: heparin initiated) were administered. Morphine 4mg IV was given for pain. Beta-blocker was held given borderline heart failure concern (NEUTRAL: beta-blocker considered but not given). The interventional cardiology team was emergently consulted, and the patient was taken directly to the cardiac catheterization laboratory within 28 minutes of arrival (door-to-balloon time goal <90 minutes) (POSITIVE: catheterization performed). No absolute contraindications to percutaneous coronary intervention were identified (NEGATIVE: contraindications absent). Fibrinolytic therapy was not pursued given PCI availability (NEGATIVE: fibrinolytics not given).
 
@@ -105,7 +105,7 @@ PHYSICAL EXAMINATION: Vital signs on ED arrival: temperature 39.4°C (tympanic),
 
 LABORATORY EVALUATION: Complete blood count: WBC 22.3 × 10⁹/L with 92% neutrophils, 4% bands (left shift); hemoglobin 11.2 g/dL; platelets 98 × 10⁹/L (baseline 220) suggesting possible early DIC (NEUTRAL: DIC will need to be monitored). Complete metabolic panel: sodium 132 mEq/L, potassium 5.1 mEq/L, chloride 98 mEq/L, bicarbonate 16 mEq/L, BUN 48 mg/dL, creatinine 3.2 mg/dL (acute-on-chronic kidney injury), glucose 287 mg/dL. Lactate obtained stat was critically elevated at 4.1 mmol/L (normal <2.0 mmol/L) (POSITIVE: lactate elevated), consistent with tissue hypoperfusion.
 
-Arterial blood gas on room air: pH 7.31, pCO2 28 mmHg, pO2 72 mmHg, HCO3 14 mEq/L (partially compensated metabolic acidosis with elevated anion gap of 18). Procalcitonin 8.7 ng/mL (highly suggestive of bacterial infection). Urinalysis: large leukocyte esterase, positive nitrites, >100 WBC/hpf, moderate bacteria (POSITIVE: UTI confirmed). Blood and urine cultures obtained prior to antibiotics (NEUTRAL: cultures pending final results).
+Arterial blood gas on room air: pH 7.31, pCO2 28 mmHg, pO2 72 mmHg, HCO3 14 mEq/L (partially compensated metabolic acidosis with elevated anion gap of 18). Procalcitonin 8.7 ng/mL (highly suggestive of bacterial infection). Urinalysis: large leukocyte esterase, positive nitrites, >100 WBC/hpf, moderate bacteria (ASSOCIATED: UTI confirmed). Blood and urine cultures obtained prior to antibiotics (INCIDENTAL: cultures pending final results).
 
 SEPSIS CRITERIA: Patient meets Sepsis-3 criteria with suspected infection (urinary source) and SOFA score increase of ≥2 points from baseline (POSITIVE: sepsis criteria met). Septic shock is present given persistent hypotension requiring vasopressor therapy despite adequate fluid resuscitation and serum lactate >2 mmol/L (POSITIVE: septic shock diagnosed). Pneumonia was ruled out based on clear lung exam and chest X-ray (NEGATIVE: pneumonia excluded). No evidence of intra-abdominal source (NEGATIVE: abdominal infection absent).
 
@@ -137,7 +137,7 @@ TREATMENT: Given presentation within 4.5 hours and no absolute contraindications
 init_db()
 
 st.title("Clinical Keyword Polarity Analyzer")
-st.caption("Detect positive, negative, and neutral mentions of clinical terms")
+st.caption("Detect associated, not associated, and incidental mentions of clinical terms")
 
 with st.sidebar:
     if st.button("Reset", use_container_width=True):
@@ -304,8 +304,8 @@ if st.button("Analyze", type="primary", use_container_width=True):
                 bert_results = []
                 for sent in df["sentence"].unique():
                     label, conf = bert_classifier.predict(sent)
-                    label_map = {"positive": "Positive", "negative": "Negative", "no_association": "Neutral"}
-                    bert_results.append({"sentence": sent, "bert_label": label_map.get(label, "Neutral"), "bert_conf": conf})
+                    label_map = {"positive": "Associated", "negative": "Not_Associated", "no_association": "Incidental", "associated": "Associated", "not_associated": "Not_Associated", "incidental": "Incidental"}
+                    bert_results.append({"sentence": sent, "bert_label": label_map.get(label, "Incidental"), "bert_conf": conf})
                 bert_df = pd.DataFrame(bert_results)
                 df = df.merge(bert_df, on="sentence", how="left")
                 
@@ -365,7 +365,7 @@ if st.button("Analyze", type="primary", use_container_width=True):
     # Metrics
     cols = st.columns(4)
     cols[0].metric("Total", len(df))
-    for i, cls in enumerate(["Positive", "Negative", "Neutral"]):
+    for i, cls in enumerate(["Associated", "Not_Associated", "Incidental"]):
         cols[i + 1].metric(cls, len(df[df["classification"] == cls]))
     
     # Comparison metrics when using both
@@ -374,12 +374,12 @@ if st.button("Analyze", type="primary", use_container_width=True):
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**Rule-based**")
-            for cls in ["Positive", "Negative", "Neutral"]:
+            for cls in ["Associated", "Not_Associated", "Incidental"]:
                 count = len(df[df["rule_classification"] == cls])
                 st.caption(f"{cls}: {count}")
         with col2:
             st.markdown("**PubMedBERT**")
-            for cls in ["Positive", "Negative", "Neutral"]:
+            for cls in ["Associated", "Not_Associated", "Incidental"]:
                 count = len(df[df["classification"] == cls])
                 st.caption(f"{cls}: {count}")
         
@@ -400,19 +400,19 @@ if st.button("Analyze", type="primary", use_container_width=True):
     pivot = df.pivot_table(
         index="model", columns="classification", values="keyword", aggfunc="count", fill_value=0
     )
-    for col in ["Positive", "Neutral", "Negative"]:
+    for col in ["Associated", "Not_Associated", "Incidental"]:
         if col not in pivot.columns:
             pivot[col] = 0
-    
+
     fig = px.bar(
         pivot.reset_index().melt("model", var_name="Classification", value_name="Count"),
         x="model", y="Count", color="Classification",
-        color_discrete_map={"Positive": "#22c55e", "Negative": "#ef4444", "Neutral": "#f59e0b"},
+        color_discrete_map={"Associated": "#22c55e", "Not_Associated": "#ef4444", "Incidental": "#f59e0b"},
     )
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Occurrences
-    COLORS = {"Positive": "#dcfce7", "Negative": "#fee2e2", "Neutral": "#fef3c7"}
+    COLORS = {"Associated": "#dcfce7", "Not_Associated": "#fee2e2", "Incidental": "#fef3c7"}
     
     def highlight(row):
         kw = row["keyword"]
