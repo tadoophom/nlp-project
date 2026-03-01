@@ -33,6 +33,8 @@ BIOMEDICAL_MODELS = {
     "scibert": "allenai/scibert_scivocab_uncased",
     "biomedbert": "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract",
     "biomedbert-large": "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract",
+    "deberta-v3-base": "microsoft/deberta-v3-base",
+    "deberta-v3-large": "microsoft/deberta-v3-large",
 }
 
 

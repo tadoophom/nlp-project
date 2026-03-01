@@ -27,12 +27,28 @@ plots/
 
 # Raw data files (too large for git)
 data/raw/
-data/benchmarks/biored/
+data/benchmarks/
+data/bioscope/
+data/cache/
+data/caseolap/
+data/corpus/
+data/labeling/
+data/splits/
+data/server_scripts/
+data/*.csv
+data/*.xlsx
+data/*.json
 data/hfpef_corpus.csv
 data/labeled.json
 data/holdout_test.json
 data/explanation_test.csv
 data/review_queue.csv
 
+# Logs, results, notes (local experiment tracking)
+logs/
+results/
+notes/
+
 # Jupyter
 .ipynb_checkpoints/
+notebooks/
