@@ -35,6 +35,7 @@ data/corpus/
 data/labeling/
 data/splits/
 data/server_scripts/
+data/archive/
 data/*.csv
 data/*.xlsx
 data/*.json
