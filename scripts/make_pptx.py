@@ -872,211 +872,140 @@ def build_presentation():
     )
 
     # =========================================================================
-    # SLIDE 21: New Experiment Block Separator
+    # SLIDE 21: Progress Update Block Separator
     # =========================================================================
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_bg(slide, DARK_BG)
 
-    add_text_box(slide, Inches(1), Inches(2.0), Inches(11.5), Inches(1.0),
-                 "NEW BLOCK: 80%-Target Experiments",
+    add_text_box(slide, Inches(1), Inches(1.8), Inches(11.5), Inches(1.0),
+                 "Progress Since Last Update",
                  font_size=38, color=WHITE, bold=True, alignment=PP_ALIGN.LEFT)
-    add_text_box(slide, Inches(1), Inches(3.25), Inches(11.5), Inches(0.8),
-                 "All slides below are newly added and do not modify earlier content",
-                 font_size=20, color=ACCENT_TEAL, alignment=PP_ALIGN.LEFT)
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
-                                   Inches(1), Inches(3.0), Inches(5.4), Pt(3))
+                                   Inches(1), Inches(2.8), Inches(5.4), Pt(3))
     shape.fill.solid()
     shape.fill.fore_color.rgb = ACCENT_BLUE
     shape.line.fill.background()
 
+    update_lines = [
+        ("Architecture experiments (cascades, experts, NLI, pseudo-labeling) hit a ceiling at ~83% accuracy.", False, 18, ACCENT_TEAL),
+        ("", False, 8, DARK_TEXT),
+        ("Systematic label audit with PI revealed noisy labels as the primary bottleneck.", False, 18, ACCENT_TEAL),
+        ("", False, 8, DARK_TEXT),
+        ("After two rounds of expert label correction: 86.3% accuracy, 87.1% macro F1.", False, 18, WHITE),
+    ]
+    add_multiline_box(slide, Inches(1), Inches(3.2), Inches(11.5), Inches(3.5), update_lines)
+
     # =========================================================================
-    # SLIDE 22: Data Pipeline Additions
+    # SLIDE 22: Label Audit Process
     # =========================================================================
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_bg(slide, WHITE)
 
     add_text_box(slide, Inches(0.8), Inches(0.4), Inches(12), Inches(0.7),
-                 "New Data Pipeline Implementations", font_size=30, color=DARK_TEXT, bold=True)
+                 "Label Audit: Two-Round Correction", font_size=30, color=DARK_TEXT, bold=True)
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
                                    Inches(0.8), Inches(1.0), Inches(3.5), Pt(3))
     shape.fill.solid()
     shape.fill.fore_color.rgb = ACCENT_BLUE
     shape.line.fill.background()
 
-    data_rows = [
-        ["Component", "Script", "Output"],
-        ["Disagreement hardcase mining", "scripts/data_prep/mine_disagreement_hardcases.py", "hardcases_train_disagreement_20260217_204501.json (600)"],
-        ["not_associated expansion", "scripts/data_prep/build_not_associated_expansion.py", "hfpef_v5_train_not_assoc_expanded.json (1227); not_associated 270 -> 326"],
-        ["Consensus pseudo-labeling", "scripts/data_prep/build_consensus_pseudolabels.py", "hfpef_v5_pseudo_consensus.json (0 selected at confidence >= 0.95)"],
-        ["Training mix builder", "scripts/data_prep/build_training_mix.py", "hfpef_v5_train_mix.json (1225 after duplicate drop)"],
-        ["Dedicated not_associated expert", "scripts/training/train_not_assoc_expert.py", "models/hfpef_v5/not_assoc_expert.joblib (val macro F1 0.9408)"],
+    audit_lines = [
+        ("Round 1: Eval Set Correction (Feb 28 -- Mar 7)", True, 15, ACCENT_BLUE),
+        ("All 6 models consistently disagreed with 88 of 300 eval labels (29%).", False, 13, DARK_TEXT),
+        ("Spreadsheet sent to PI (Clodomir) for domain expert review.", False, 13, DARK_TEXT),
+        ("PI requested protein name column -- sentences with multiple proteins needed disambiguation.", False, 13, DARK_TEXT),
+        ("53 of 88 labels corrected. Result: models jumped from ~70% to 85.7% accuracy.", False, 13, DARK_TEXT),
+        ("", False, 6, DARK_TEXT),
+        ("Round 2: Training Set Correction (Mar 7 -- Mar 18)", True, 15, ACCENT_BLUE),
+        ("164 suspicious training examples flagged via model disagreement mining.", False, 13, DARK_TEXT),
+        ("109 training labels corrected from train_relabel_audit_164_cs.xlsx.", False, 13, DARK_TEXT),
+        ("Models retrained on corrected v9 training set (1,102 examples).", False, 13, DARK_TEXT),
     ]
-    add_table(slide, Inches(0.8), Inches(1.8), Inches(11.8), Inches(3.8), data_rows,
-              col_widths=[Inches(2.5), Inches(4.6), Inches(4.7)])
+    add_multiline_box(slide, Inches(0.8), Inches(1.4), Inches(11.8), Inches(3.8), audit_lines)
 
-    add_text_box(slide, Inches(0.8), Inches(5.95), Inches(11.8), Inches(0.9),
-                 "v5 run focus: targeted class-balance correction and expert rerouting; broad pseudo-labeling gate accepted 0/300 candidates.",
-                 font_size=13, color=DARK_TEXT)
+    transition_rows = [
+        ["Transition", "Count"],
+        ["incidental -> associated", "57"],
+        ["associated -> incidental", "27"],
+        ["associated -> not_associated", "10"],
+        ["incidental -> not_associated", "9"],
+        ["not_associated -> incidental", "4"],
+        ["not_associated -> associated", "2"],
+    ]
+    add_table(slide, Inches(0.8), Inches(5.3), Inches(5.0), Inches(2.0), transition_rows,
+              col_widths=[Inches(3.2), Inches(1.4)])
+
+    add_multiline_box(slide, Inches(6.2), Inches(5.3), Inches(6.4), Inches(2.0), [
+        ("Dominant correction: incidental -> associated (57 of 109).", True, 13, ACCENT_BLUE),
+        ("Many true associations were originally mislabeled as incidental mentions.", False, 13, DARK_TEXT),
+        ("PI feedback: labeling was hard due to ambiguity and subjectivity at the boundary.", False, 12, MID_GRAY),
+    ])
 
     # =========================================================================
-    # SLIDE 23: 80%-Target Experiment Results
+    # SLIDE 23: v9 Retrained Results
     # =========================================================================
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_bg(slide, WHITE)
 
     add_text_box(slide, Inches(0.8), Inches(0.4), Inches(12), Inches(0.7),
-                 "80%-Target Experiments: Measured Outcomes", font_size=30, color=DARK_TEXT, bold=True)
+                 "v9 Results After Label Corrections", font_size=30, color=DARK_TEXT, bold=True)
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
                                    Inches(0.8), Inches(1.0), Inches(3.8), Pt(3))
     shape.fill.solid()
     shape.fill.fore_color.rgb = ACCENT_BLUE
     shape.line.fill.background()
 
-    result_rows_new = [
-        ["Method", "Accuracy", "Macro F1", "Status"],
-        ["Baseline (Method 1 sentence)", "69.3%", "0.6667", "Reference baseline"],
-        ["Fusion + threshold tuning (server)", "74.4%", "0.6789", "Previous best before v5"],
-        ["v5 not_associated expert cascade", "75.0%", "0.6935", "Current best overall (assoc_max=0.35, not_inc_gap=0.03)"],
-        ["v5 dual-expert cascade", "72.7%", "0.7111", "Best macro F1; accuracy tradeoff (rerouted_assoc=28)"],
-        ["v5 mix retrain (expanded + pseudo mix)", "66.5%", "0.6654", "Regression vs fusion baseline"],
-        ["NLI reformulation", "62.5%", "0.4686", "Large associated-class instability"],
+    v9_rows = [
+        ["Model Variant", "Accuracy", "Macro F1", "Notes"],
+        ["Best calibrated single model", "86.3%", "87.1%", "PubMedBERT warm-start, R-Drop 0.5"],
+        ["6-model ensemble (R-Drop + Vanilla)", "86.3%", "87.0%", "3 R-Drop seeds + 3 vanilla seeds"],
+        ["3-seed R-Drop ensemble", "86.0%", "86.7%", "Seeds: 42, 2026, 314"],
+        ["", "", "", ""],
+        ["Previous best (v8 calibrated)", "82.5%", "74.3%", "Before label corrections"],
+        ["Previous best (relabel2 calibrated)", "83.2%", "73.9%", "Before label corrections"],
     ]
-    add_table(slide, Inches(0.8), Inches(1.8), Inches(11.8), Inches(3.5), result_rows_new,
-              col_widths=[Inches(3.6), Inches(1.3), Inches(1.3), Inches(5.1)])
+    add_table(slide, Inches(0.8), Inches(1.8), Inches(11.8), Inches(3.5), v9_rows,
+              col_widths=[Inches(3.8), Inches(1.3), Inches(1.3), Inches(5.4)])
 
     add_text_box(slide, Inches(0.8), Inches(5.7), Inches(11.8), Inches(1.0),
-                 "Key finding: best accuracy is 75.0%, while best macro F1 is 0.7111 from dual-expert rerouting; 80% has not been reached yet.",
-                 font_size=13, color=RED_ACCENT, bold=True)
+                 "80% target exceeded. All model variants clear 86% accuracy and 86% macro F1 on corrected eval set.",
+                 font_size=14, color=GREEN_ACCENT, bold=True)
 
     # =========================================================================
-    # SLIDE 24: Bottleneck and Next Run Plan
-    # =========================================================================
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, WHITE)
-
-    add_text_box(slide, Inches(0.8), Inches(0.4), Inches(12), Inches(0.7),
-                 "Why 80% Is Not Reached Yet", font_size=30, color=DARK_TEXT, bold=True)
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
-                                   Inches(0.8), Inches(1.0), Inches(3.2), Pt(3))
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = ACCENT_BLUE
-    shape.line.fill.background()
-
-    bottleneck_rows = [
-        ["Bottleneck", "Observed Evidence", "Next Fix"],
-        ["Accuracy vs macro-F1 tradeoff", "Dual-expert run reached macro F1 0.7111 but dropped accuracy to 72.7%", "Tune reroute budget to cap incidental false positives while keeping associated gains"],
-        ["Pseudo-label gate too strict", "Consensus pseudo-labeling accepted 0/300 candidates", "Use disease-conditioned prompts or lower threshold only after manual spot-check"],
-        ["Noise sensitivity in retraining", "v5 mixed retrain fell to 66.5% / 0.6654", "Filter added samples by sentence quality and agreement before retraining"],
-        ["Expert reroute impact is narrow", "Best gain came from rerouting just 1 sample", "Train multiclass expert or larger uncertainty band for rerouting"],
-    ]
-    add_table(slide, Inches(0.8), Inches(1.8), Inches(11.8), Inches(3.8), bottleneck_rows,
-              col_widths=[Inches(2.8), Inches(3.9), Inches(5.1)])
-
-    add_text_box(slide, Inches(0.8), Inches(6.0), Inches(11.8), Inches(0.8),
-                 "Most defensible near-term target: 76-78% with associated-focused mining and stricter sample-quality controls.",
-                 font_size=13, color=ACCENT_BLUE, bold=True)
-
-    # =========================================================================
-    # SLIDE 25: AWS v8 Run Summary (New)
+    # SLIDE 24: Key Finding - Label Quality Was the Bottleneck
     # =========================================================================
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_bg(slide, WHITE)
 
     add_text_box(slide, Inches(0.8), Inches(0.4), Inches(12), Inches(0.7),
-                 "NEW: AWS v8 Run Summary (Feb 23, 2026)", font_size=30, color=DARK_TEXT, bold=True)
+                 "Key Finding: Label Quality Was the Bottleneck", font_size=30, color=DARK_TEXT, bold=True)
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
-                                   Inches(0.8), Inches(1.0), Inches(4.3), Pt(3))
+                                   Inches(0.8), Inches(1.0), Inches(4.2), Pt(3))
     shape.fill.solid()
     shape.fill.fore_color.rgb = ACCENT_BLUE
     shape.line.fill.background()
 
-    lines_v8 = [
-        ("Executed pipeline on AWS server: ec2-18-224-98-201.us-east-2.compute.amazonaws.com", False, 13, DARK_TEXT),
-        ("Objective: rerun full \"do all\" block from pseudo build through no-leak evaluation.", False, 13, DARK_TEXT),
+    finding_lines = [
+        ("Before label corrections", True, 16, RED_ACCENT),
+        ("Best accuracy: 83.2% | Best macro F1: 0.7427", False, 14, DARK_TEXT),
+        ("Models penalized for correct predictions against noisy ground truth.", False, 13, DARK_TEXT),
+        ("Architecture experiments (cascades, experts, NLI, context windows) yielded marginal gains.", False, 13, DARK_TEXT),
         ("", False, 6, DARK_TEXT),
-        ("Completed stages", True, 15, ACCENT_BLUE),
-        ("1) CVD full-UniProt quality pseudo pool build", False, 13, DARK_TEXT),
-        ("2) Precision-controlled pseudo pass over hfpef_corpus", False, 13, DARK_TEXT),
-        ("3) Training mix + context-mapped mix generation", False, 13, DARK_TEXT),
-        ("4) Three model retrains (sentence/context/cvd)", False, 13, DARK_TEXT),
-        ("5) Expert retrains (not_associated + associated)", False, 13, DARK_TEXT),
-        ("6) No-leak eval: calibration + not-assoc cascade + dual cascade", False, 13, DARK_TEXT),
+        ("After label corrections", True, 16, GREEN_ACCENT),
+        ("Best accuracy: 86.3% | Best macro F1: 87.1%", False, 14, DARK_TEXT),
+        ("Same architecture (PubMedBERT + focal loss + R-Drop) -- only the labels changed.", False, 13, DARK_TEXT),
+        ("Remaining errors concentrated at the associated/incidental boundary.", False, 13, DARK_TEXT),
+        ("", False, 6, DARK_TEXT),
+        ("Root cause", True, 16, ACCENT_BLUE),
+        ("Sentences with multiple protein mentions created label ambiguity without explicit target protein.", False, 13, DARK_TEXT),
+        ("PI confirmed: \"labelling those sentences was not easy because there's a lot of ambiguity", False, 13, DARK_TEXT),
+        ("and subjectivity involved.\" Protein disambiguation column resolved most disagreements.", False, 13, DARK_TEXT),
+        ("", False, 6, DARK_TEXT),
+        ("Implication", True, 16, ACCENT_BLUE),
+        ("Label audit with domain expert should precede architecture search.", False, 13, DARK_TEXT),
+        ("Further gains require sharper annotation guidelines at the associated/incidental boundary.", False, 13, DARK_TEXT),
     ]
-    add_multiline_box(slide, Inches(0.8), Inches(1.4), Inches(11.8), Inches(4.4), lines_v8)
-
-    add_text_box(slide, Inches(0.8), Inches(6.1), Inches(11.8), Inches(0.8),
-                 "Artifacts synced locally: logs/aws_v8_20260223/*",
-                 font_size=12, color=MID_GRAY)
-
-    # =========================================================================
-    # SLIDE 26: AWS v8 Data Volumes (New)
-    # =========================================================================
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, WHITE)
-
-    add_text_box(slide, Inches(0.8), Inches(0.4), Inches(12), Inches(0.7),
-                 "NEW: AWS v8 Data Volumes", font_size=30, color=DARK_TEXT, bold=True)
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
-                                   Inches(0.8), Inches(1.0), Inches(3.2), Pt(3))
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = ACCENT_BLUE
-    shape.line.fill.background()
-
-    v8_data_rows = [
-        ["Source / Stage", "Count", "Class Distribution / Notes"],
-        ["CVD full-UniProt quality pool", "741", "assoc 205 | not_assoc 36 | incidental 500"],
-        ["Precision pseudo pool", "0", "strict gate accepted 0 / 15,989 candidates"],
-        ["Pseudo combined", "741", "same as quality pool (no extra precision pseudo accepted)"],
-        ["Base relabel2 train", "1,227", "assoc 371 | not_assoc 308 | incidental 548"],
-        ["v8 train mix output", "1,587", "assoc 534 | not_assoc 342 | incidental 711"],
-        ["Context-mapped mix", "1,587", "mapped 1,060 | fallback 527"],
-    ]
-    add_table(slide, Inches(0.8), Inches(1.8), Inches(11.8), Inches(3.9), v8_data_rows,
-              col_widths=[Inches(3.7), Inches(1.4), Inches(6.7)])
-
-    add_text_box(slide, Inches(0.8), Inches(5.95), Inches(11.8), Inches(0.8),
-                 "Key blocker from this run: precision pseudo stage added zero new samples.",
-                 font_size=13, color=RED_ACCENT, bold=True)
-
-    # =========================================================================
-    # SLIDE 27: AWS v8 No-Leak Results (New)
-    # =========================================================================
-    slide = prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_bg(slide, WHITE)
-
-    add_text_box(slide, Inches(0.8), Inches(0.4), Inches(12), Inches(0.7),
-                 "NEW: AWS v8 No-Leak Results vs Relabel2", font_size=30, color=DARK_TEXT, bold=True)
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE,
-                                   Inches(0.8), Inches(1.0), Inches(4.0), Pt(3))
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = ACCENT_BLUE
-    shape.line.fill.background()
-
-    v8_metric_rows = [
-        ["Variant", "Accuracy", "Macro F1", "Weighted F1"],
-        ["Relabel2 calibrated (best prior)", "83.22%", "0.7385", "0.8317"],
-        ["v8 calibrated (best v8)", "82.52%", "0.7427", "0.8298"],
-        ["v8 not-assoc cascade", "79.72%", "0.7362", "0.8129"],
-        ["v8 dual cascade", "68.53%", "0.6610", "0.7156"],
-    ]
-    add_table(slide, Inches(0.8), Inches(1.8), Inches(11.8), Inches(2.9), v8_metric_rows,
-              col_widths=[Inches(4.2), Inches(1.6), Inches(1.6), Inches(1.9)])
-
-    delta_rows = [
-        ["Best-v8 minus best-relabel2", "Delta"],
-        ["Accuracy delta", "-0.699 pp"],
-        ["Macro F1 delta", "+0.421 pp"],
-        ["Weighted F1 delta", "-0.198 pp"],
-    ]
-    add_table(slide, Inches(0.8), Inches(5.0), Inches(4.8), Inches(1.8), delta_rows,
-              col_widths=[Inches(3.3), Inches(1.3)])
-
-    lines_v8_takeaway = [
-        ("Takeaway", True, 14, ACCENT_BLUE),
-        ("v8 slightly improves macro F1 but does not improve top-line accuracy.", False, 13, DARK_TEXT),
-        ("Next accuracy gain likely needs accepted high-quality pseudo samples (not zero-pass gating).", False, 13, DARK_TEXT),
-    ]
-    add_multiline_box(slide, Inches(5.9), Inches(5.0), Inches(6.7), Inches(1.8), lines_v8_takeaway)
+    add_multiline_box(slide, Inches(0.8), Inches(1.4), Inches(11.8), Inches(5.8), finding_lines)
 
     # Save
     output_path = ROOT / "results" / "hfpef_presentation.pptx"

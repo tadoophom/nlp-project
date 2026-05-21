@@ -53,3 +53,16 @@ notes/
 # Jupyter
 .ipynb_checkpoints/
 notebooks/
+.claude/
+download.html
+texput.log
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.log
+paper/*.out
+paper/missfont.log
+paper/download.html
+paper/page-images/

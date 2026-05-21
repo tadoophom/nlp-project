@@ -1,0 +1,464 @@
+\documentclass[sn-basic,pdflatex]{sn-jnl}
+
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{flushend}
+\usepackage[font=small,labelfont=bf]{caption}
+
+\makeatletter
+\@ifundefined{SetFootnoteHook}{\newcommand{\SetFootnoteHook}[1]{}}{}
+\@ifundefined{DeclareNewFootnote}{%
+  \def\DeclareNewFootnote#1[#2]{%
+    \expandafter\newinsert\csname footins#1\endcsname
+    \expandafter\gdef\csname footnote#1\endcsname##1{\footnote{##1}}%
+  }%
+}{}
+\@ifundefined{threeparttable}{\newenvironment{threeparttable}{}{}}{}
+\@ifundefined{jyear}{\newcommand{\jyear}[1]{}}{}
+\makeatother
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\TableSetup}{%
+  \small
+  \setlength{\tabcolsep}{4pt}%
+  \renewcommand{\arraystretch}{1.05}%
+}
+\newcommand{\TableNote}[1]{\par\vspace{3pt}\footnotesize #1}
+\newcommand{\RunInHeading}[1]{\par\smallskip\noindent\textbf{#1}\enspace\ignorespaces}
+\newcommand{\ClassLabel}[1]{\mbox{\textup{#1}}}
+\newcommand{\associated}{\ClassLabel{associated}}
+\newcommand{\notassociated}{\ClassLabel{not\_associated}}
+\newcommand{\incidental}{\ClassLabel{incidental}}
+\newcommand{\PubMedBERTCheckpoint}{%
+  \mbox{\texttt{microsoft/BiomedNLP-}}\allowbreak%
+  \mbox{\texttt{PubMedBERT-base-}}\allowbreak%
+  \mbox{\texttt{uncased-abstract-}}\allowbreak%
+  \mbox{\texttt{fulltext}}%
+}
+\newcommand{\WarmStartCheckpoint}{%
+  \mbox{\texttt{models/hfpef\_v7/}}\allowbreak%
+  \mbox{\texttt{pubmedbert\_focal\_}}\allowbreak%
+  \mbox{\texttt{large\_base\_20260224/}}\allowbreak%
+  \mbox{\texttt{final}}%
+}
+\clubpenalty=10000
+\widowpenalty=10000
+\displaywidowpenalty=10000
+\hbadness=10001
+\vbadness=10001
+\emergencystretch=1em
+\raggedbottom
+
+\jyear{2026}
+
+\begin{document}
+
+\title[Label Quality Over Model Complexity]{Label Quality Over Model Complexity: Protein--Disease Association Classification in HFpEF Literature}
+
+\author*[1]{\fnm{Aktan} \sur{Azat}}\email{aazat@ucdavis.edu}
+\author[1]{\fnm{Clodomir Joaquim} \sur{De Santana Junior}}
+\author[1]{\fnm{David A.} \sur{Liem}}
+\author[1]{\fnm{Martin} \sur{Cadeiras}}
+
+\affil[1]{\orgdiv{Department of Internal Medicine}, \orgname{University of California, Davis}, \orgaddress{\city{Davis}, \state{California}, \country{USA}}}
+
+\abstract{
+Literature-mining pipelines rank proteins by co-occurrence with disease terms, but co-occurrence mixes genuine biological associations with incidental mentions, producing noisy candidate lists for downstream investigation.
+
+We address this in the context of heart failure with preserved ejection fraction (HFpEF) by introducing a sentence-level relevance filter applied to protein mentions retrieved from PubMed abstracts. The proposed solution is a fine-tuned PubMedBERT classifier trained with weighted cross-entropy loss, R-Drop dropout-consistency regularization, and a six-model majority-vote ensemble across three random seeds. Threshold-tuned variants are reported only as sensitivity analysis.
+
+On a 300-sentence held-out evaluation set, the ensemble achieves 85.3\% accuracy and 86.1\% macro F1, with bootstrap 95\% confidence intervals of 81.0--89.3\% for accuracy and 82.1--89.7\% for macro F1. The uncalibrated cross-seed mean across six single models is $84.4 \pm 0.7\%$ accuracy and $85.2 \pm 0.6\%$ macro F1. Compared with the CaseOLAP co-occurrence baseline that scores every protein as associated, the proposed classifier reaches 85.3\% accuracy versus 38.3\% on the same evaluation set. Applied downstream of CaseOLAP for HFpEF, the classifier reduces the candidate protein list by removing mentions classified as not associated or incidental.
+
+The largest historical jump in our development chronology coincided with a label-audit stage in which the relabel3-to-relabel4 transition combined targeted label correction, a relabeling pass, and an evaluation-set expansion from 176 to 300 sentences; we present it as a chronology rather than a controlled ablation. Domain-expert review corrected 53 evaluation labels and 109 training labels, with most errors traced to multi-protein sentences whose annotation view omitted the target protein. In our development chronology on this 1{,}402-sentence dataset, the relabel4 audit stage coincided with the largest accuracy gain we recorded; we cannot, with the controls we ran, separate that gain from the parallel relabeling and evaluation-set expansion that occurred in the same window.
+}
+
+\keywords{biomedical NLP, protein--disease association, label noise, PubMedBERT, HFpEF}
+
+\maketitle
+
+\section{Introduction}
+\label{sec:intro}
+
+Heart failure with preserved ejection fraction (HFpEF) is a clinical syndrome in which patients exhibit signs and symptoms of heart failure despite a left ventricular ejection fraction at or above 50\%. It accounts for roughly half of all heart failure cases worldwide and disproportionately affects older adults and women \citep{northcott2021hfpef}. Unlike heart failure with reduced ejection fraction (HFrEF), HFpEF is characterized by impaired diastolic filling, ventricular stiffness, and a heterogeneous mix of comorbidities including obesity, hypertension, atrial fibrillation, and chronic kidney disease.
+
+Despite its prevalence, HFpEF lacks the disease-modifying therapies available for HFrEF. Sodium-glucose co-transporter 2 (SGLT2) inhibitors are the only drug class with consistent benefit across recent trials, and the molecular pathways behind their effect remain partially unresolved. The proteins, biomarkers, and signaling pathways that drive the HFpEF phenotype, distinguishing it mechanistically from HFrEF, are dispersed across thousands of PubMed abstracts published over the past two decades, with no consolidated source of evidence. This dispersion makes systematic literature review costly, slow, and prone to omission of relevant work.
+
+One way to consolidate dispersed biomedical evidence is automated text-mining of abstracts. Prior work has built knowledge graphs from co-occurrence statistics \citep{liem2018ecm,fang2021caseolap}, applied biomedical language models for entity recognition and relation extraction \citep{lee2020biobert,gu2021pubmedbert}, and explored disease-specific filtering pipelines for cardiovascular targets \citep{bhatt2024oxidative,urdang2025preeclampsia}. These approaches produce candidate protein lists at scale, but each carries its own failure modes that motivate further refinement.
+
+Natural language processing (NLP) for biomedical text has shifted in the last five years from rule-based and shallow-feature methods to deep contextual language models pre-trained on biomedical corpora. PubMedBERT \citep{gu2021pubmedbert}, BioBERT \citep{lee2020biobert}, and SciBERT \citep{beltagy2019scibert} are now standard backbones for tasks ranging from named entity recognition to relation extraction and document classification. PubMedBERT, pre-trained from scratch on PubMed abstracts rather than continued from general-domain checkpoints, consistently outperforms general-domain Bidirectional Encoder Representations from Transformers (BERT) \citep{devlin2019bert} and feature-engineered baselines on biomedical benchmarks. SciBERT and BioBERT differ primarily in pre-training corpus composition and vocabulary, with PubMedBERT showing the strongest empirical results on PubMed-derived tasks.
+
+The CaseOLAP platform (Case-based Online Analytical Processing) \citep{liem2018ecm,liem2019cloud,fang2021caseolap,fang2023organellar,liem2023caseolap} is a literature-mining system that scores entities (proteins, drugs, biomarkers) against disease categories using textual co-occurrence patterns across large document collections. CaseOLAP has been applied to extracellular matrix proteins in cardiovascular disease \citep{liem2018ecm}, organellar pathways via knowledge graphs \citep{fang2023organellar}, oxidative stress and calcium-regulating proteins \citep{bhatt2024oxidative}, and maternal proteins in preeclampsia \citep{urdang2025preeclampsia}. The platform produces ranked protein lists, and a high co-occurrence score does not guarantee biological association. A protein may appear alongside HFpEF as a methodological control, a negative finding, or an incidental reference to a related comorbidity. For example, a sentence stating that a cohort included \emph{``49\% of HFpEF patients on ACE inhibitors''} mentions ACE alongside HFpEF without asserting any biological role for ACE in HFpEF pathophysiology. Manual inspection of CaseOLAP outputs for HFpEF showed that a substantial fraction of high-scoring protein mentions are incidental in this sense, inflating the candidate list and obscuring genuine targets.
+
+We address this limitation by adding a sentence-level relevance filter downstream of CaseOLAP. Given a sentence from a PubMed abstract that mentions both a protein and an HFpEF-related disease term, we classify the mention as describing a biological association, an explicit non-association, or an incidental reference. The classifier is a fine-tuned PubMedBERT model trained on 1{,}102 expert-annotated sentences, regularized with R-Drop and class-weighted cross-entropy, and combined into a six-model majority-vote ensemble across three random seeds. Predictions are then used to filter and re-weight CaseOLAP rankings so that downstream investigation focuses on proteins with genuine textual evidence of association rather than on co-occurrence frequency alone. Our contributions are: (i) the classifier and its ensemble configuration, (ii) a systematic ensemble-disagreement label-audit methodology that surfaced 162 annotation corrections across training and evaluation, and (iii) a development chronology that documents where label-quality work sat among the architecture, loss, and threshold changes we tried.
+
+The remainder of the paper is organized as follows. Section~\ref{sec:related} reviews related work in biomedical relation extraction, label noise in NLP, and CaseOLAP. Section~\ref{sec:methods} describes data collection, annotation, model architecture, the label-audit methodology, and the evaluation protocol. Section~\ref{sec:experiments} presents the ablation study, cross-seed stability analysis, and outcomes of the two label-audit rounds. Section~\ref{sec:results} reports headline results, error analysis, and the impact of filtering on the CaseOLAP HFpEF protein ranking. Section~\ref{sec:discussion} discusses where label correction sat in our development chronology, and Section~\ref{sec:conclusion} concludes.
+
+
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Biomedical Relation Extraction}
+
+Three transformer encoders dominate biomedical NLP, and they differ in pre-training corpus and vocabulary construction. BioBERT \citep{lee2020biobert} initializes from general-domain BERT \citep{devlin2019bert} and continues pre-training on PubMed abstracts and PMC full-text articles, inheriting syntactic competence from web-scale pre-training while adapting to biomedical vocabulary. SciBERT \citep{beltagy2019scibert} is trained from scratch on a 1.14M-paper Semantic Scholar corpus mixing computer science and biomedical text, with a vocabulary built from that corpus. PubMedBERT \citep{gu2021pubmedbert} is also pre-trained from scratch but only on PubMed, with a vocabulary derived from PubMed itself; this avoids the vocabulary mismatch that hurts continued-pre-training models on rare biomedical terms, and it consistently outperforms BioBERT and SciBERT on the BLURB benchmark. We use PubMedBERT for these reasons.
+
+Sentence-level biomedical relation extraction has also been studied in task-focused corpora. ChemProt \citep{peng2018chemprot} annotates chemical--protein interaction types (inhibitor, agonist, substrate, antagonist) over PubMed abstracts. The DDIExtraction shared task \citep{segurabedmar2013ddi} targets drug--drug interaction detection and classification in DrugBank and MEDLINE text. These benchmarks sharpen entity-relation typing for known relation classes, and they do not separate genuine disease association from incidental co-mention. BioRED \citep{luo2022biored} provides 600 PubMed abstracts annotated with multiple entity types and relation labels including positive, negative, and association-strength annotations across genes, diseases, chemicals, and variants. EU-ADR \citep{vanmulligen2012euadr} provides 300 abstracts annotated for adverse drug reactions and drug--target relations. Neither corpus distinguishes between asserted biological association and incidental mention at the sentence level, which is the distinction we target.
+
+\subsection{Label Noise in NLP}
+
+Label noise is widespread in expert-annotated datasets and degrades classifier performance \citep{northcutt2021confident,song2022learning}. Two families of techniques dominate the literature. The first family corrects for noisy labels at training time through noise-tolerant loss functions, noise-aware loss weighting, and sample re-weighting; \citet{song2022learning} survey this literature in detail. The second family identifies and corrects mislabeled examples explicitly. Confident Learning \citep{northcutt2021confident} estimates label errors from out-of-fold predicted probabilities calibrated by class confidence thresholds, then prunes or relabels suspect examples. The Cleanlab library implements this approach and has been applied across vision, text, and tabular benchmarks.
+
+Our setting differs in two ways. The dataset is small enough (1{,}402 sentences) that we can afford domain-expert review of every flagged candidate, and the labels were produced by a single annotator without an explicit calibration pass against multiple raters. We adopt a deliberately simpler signal than Confident Learning: train an ensemble with diverse seeds and regularization configurations, flag examples where the modal prediction disagrees with the gold label, and rank candidates by a suspicion score combining disagreement rate, wrong-label confidence, and predictive entropy. The ranked queue is reviewed by a domain expert with access to the original abstract and the specific target protein. Section~\ref{sec:audit} describes this workflow in detail.
+
+\subsection{CaseOLAP and Knowledge Extraction}
+
+CaseOLAP \citep{liem2018ecm,liem2019cloud} scores entity--category associations using textual co-occurrence across document collections.
+CaseOLAP LIFT \citep{fang2021caseolap} extends the platform with knowledge graph construction for protein--disease associations, and subsequent work has applied it to organellar pathways \citep{fang2023organellar}, oxidative stress mechanisms \citep{bhatt2024oxidative}, and preeclampsia \citep{urdang2025preeclampsia}.
+Our classifier operates downstream of CaseOLAP, refining co-occurrence scores by distinguishing genuine associations from incidental mentions at the sentence level.
+Figure~\ref{fig:pipeline} shows how the classifier integrates into the existing pipeline.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_pipeline.pdf}
+\caption{End-to-end pipeline. CaseOLAP retrieves abstracts and extracts protein mentions. Our classifier (red) labels each mention as \associated, \notassociated, or \incidental. The re-ranking step filters and reorders proteins by association evidence rather than co-occurrence frequency.}
+\label{fig:pipeline}
+\end{figure}
+
+
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Data Collection and Annotation}
+\label{sec:data}
+
+We retrieved PubMed abstracts through the CaseOLAP pipeline, which queries the National Library of Medicine's E-utilities API with a Boolean expression combining HFpEF-relevant Medical Subject Headings (MeSH) descriptors and free-text synonyms.
+The MeSH tree numbers used were drawn from the C14 (cardiovascular diseases) branch, primarily C14.280.067, C14.280.238, C14.280.434, C14.280.484, and C14.280.647 (heart failure and its subtypes), supplemented with the keywords ``heart failure with preserved ejection fraction'', ``HFpEF'', ``diastolic heart failure'', and ``preserved ejection fraction''.
+The protein-side query expansion used UniProt human protein names and synonyms.
+The full MeSH list and protein synonym table are provided in the supplementary material.
+Retrieved abstracts were split into sentences using spaCy, and sentences containing at least one protein mention and one disease mention were retained as classification candidates.
+
+A domain expert labeled sentences into three classes:
+\begin{itemize}
+  \item \associated\ (32.1\%): the sentence asserts a biological relationship between the protein and disease.
+  \item \notassociated\ (23.8\%): the sentence explicitly denies a relationship or reports a negative finding.
+  \item \incidental\ (44.1\%): the protein is mentioned without asserting or denying a relationship.
+\end{itemize}
+
+The training set contains 1,102 sentences after leak removal. The evaluation set contains 300 sentences with 115 \associated, 79 \notassociated, and 106 \incidental\ examples.
+Table~\ref{tab:examples} shows representative sentences from each class, including a boundary case.
+
+\begin{table}[t]
+\centering
+\TableSetup
+\caption{Example sentences from each class. The boundary case illustrates the \associated/\incidental\ ambiguity at the core of the annotation challenge.}
+\label{tab:examples}
+\begin{tabular}{@{}L{0.21\linewidth}L{0.73\linewidth}@{}}
+\toprule
+\textbf{Label} & \textbf{Sentence} \\
+\midrule
+\associated & ``Higher levels of ADMA and SDMA and lower levels of homoarginine are associated with an adverse cardiovascular risk profile and diastolic dysfunction.'' \\
+\associated & ``Significant correlation between plasma Galectin-3 and E/Em in advanced HFPEF patients was noted.'' \\
+\midrule
+\notassociated & ``Lp(a) $\geq$50 mg/dL was not associated with HF risk overall or by EF subtype (HFpEF HR, 0.97).'' \\
+\notassociated & ``sST2 was not associated with left ventricular structure or left ventricular systolic or diastolic function.'' \\
+\midrule
+\incidental & ``In the HFpEF group, 76\% were on beta-blockers, 49\% on ACEi/ARB, 18\% on ARNI, 49\% on MRA and 40\% on SGLT2i.'' \\
+\incidental & ``Our study aimed to differentiate patients with ATTRwt-CM from ATTRwt-negative HFpEF patients by identifying circulating protein biomarkers.'' \\
+\midrule
+\emph{Boundary} & ``HFpEF and HFrEF share elevated levels of leptin and adiponectin.'' \emph{(Labeled associated: reports a finding. Could be read as incidental if the reader treats shared elevation as background rather than a claim.)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Model Architecture}
+\label{sec:model}
+
+We fine-tune PubMedBERT \citep{gu2021pubmedbert} (110M parameters) for three-way classification.
+The \texttt{[CLS]} token representation is passed through a linear classification head.
+
+\RunInHeading{Final training loss.}
+The final v9 retraining stage uses weighted cross-entropy loss with class weights inversely proportional to class frequency as defined in Eq.~\eqref{eq:wce}:
+\begin{equation}
+\label{eq:wce}
+  \mathcal{L}_{\text{wCE}} = -w_y \log(p_y)
+\end{equation}
+where $p_y$ is the predicted probability for the gold label $y$ and $w_y$ is the class weight.
+
+\RunInHeading{Earlier focal-loss baseline.}
+Earlier ablations and the warm-start v7 base checkpoint used focal loss \citep{lin2017focal} with $\gamma = 2.0$ as defined in Eq.~\eqref{eq:focal}:
+\begin{equation}
+\label{eq:focal}
+  \mathcal{L}_{\text{focal}} = -\alpha_t (1 - p_t)^\gamma \log(p_t)
+\end{equation}
+where $p_t$ is the predicted probability for the true class and $\alpha_t$ is the class weight.
+
+\RunInHeading{R-Drop regularization.}
+Fine-tuning 110M parameters on ${\sim}$1,100 examples produces high variance across random seeds.
+R-Drop \citep{wu2021rdrop} mitigates this by passing each example through the model twice with different dropout masks and penalizing divergence between the two output distributions as defined in Eq.~\eqref{eq:rdrop}:
+\begin{equation}
+\label{eq:rdrop}
+  \mathcal{L} = \frac{1}{2}(\mathcal{L}_1 + \mathcal{L}_2) + \frac{\alpha}{2} \left[D_{\text{KL}}(p_1 \| p_2) + D_{\text{KL}}(p_2 \| p_1)\right]
+\end{equation}
+with $\alpha = 0.5$.
+
+\RunInHeading{Threshold-tuned sensitivity analysis.}
+We also evaluate temperature scaling \citep{guo2017calibration} and constrained per-class threshold search, subject to a minimum recall constraint on the \associated\ class.
+The clean headline results use uncalibrated majority vote and report the evaluation set once.
+Earlier drafts tuned thresholds directly on the evaluation set; we retain those numbers only as sensitivity analysis because that procedure is optimistic.
+The uncalibrated cross-seed mean ($84.4 \pm 0.7\%$ accuracy) provides the threshold-free reference point.
+
+\RunInHeading{Ensemble.}
+We train six models: three with R-Drop ($\alpha = 0.5$) and three with standard dropout, each with a different random seed (42, 2026, 314).
+Headline predictions use majority vote across the six models.
+
+\subsection{Label Audit Methodology}
+\label{sec:audit}
+
+The label audit uses ensemble disagreement as a signal for potential annotation errors:
+
+\begin{enumerate}
+  \item Train $k = 6$ models with different seeds and regularization settings.
+  \item For each evaluation example, collect predictions from all $k$ models.
+  \item Identify examples whose modal vote label differs from the current label.
+  \item Rank candidates by a suspicion score that combines disagreement rate, wrong-label confidence, and predictive entropy.
+  \item Present candidates to a domain expert with the original abstract and the specific target protein.
+  \item Apply corrections and retrain.
+\end{enumerate}
+
+Two rounds were performed. In the first round, 88 of 300 evaluation examples (29.3\%) had a modal vote label different from the current annotation. Expert review corrected 53 of those labels and surfaced a recurring annotation issue: sentences mentioning multiple proteins were ambiguous because the annotation interface did not specify which protein the label applied to. Adding a \emph{target protein} column to the annotation spreadsheet reduced this ambiguity for subsequent rounds. The second round applied the same workflow to 164 training examples, yielding 109 corrections.
+
+\subsection{Evaluation Protocol}
+
+We report accuracy and macro-averaged F1 on the 300-sentence evaluation set.
+Macro F1 weights all three classes equally, penalizing models that ignore the minority \notassociated\ class.
+Cross-seed statistics (mean $\pm$ standard deviation) are reported across all six models.
+
+For external validation, we report exploratory transfer evaluation on EU-ADR \citep{vanmulligen2012euadr} and BioRED \citep{luo2022biored} after task-specific label mapping.
+
+
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Experimental Setup}
+
+\begin{sloppypar}
+All models use the PubMedBERT checkpoint \PubMedBERTCheckpoint{} (110M parameters).
+Training hyperparameters: learning rate $2 \times 10^{-5}$, batch size 16, maximum 6 epochs with early stopping (patience 2), weight decay 0.01.
+Models are warm-started from a base checkpoint trained on the relabel3 version of the same 1,102-example HFpEF split (v7).
+Training ran on an AWS EC2 r8g.2xlarge instance (8-core ARM Graviton, 64 GB RAM, CPU-only). Each model trained in approximately 50 minutes.
+
+\RunInHeading{Reproducibility details.}
+Each run used a 0.15 validation split, maximum sequence length 256, and best-checkpoint selection by validation weighted F1.
+The final v9 retraining runs were warm-started from \WarmStartCheckpoint{}; that checkpoint used focal loss, but the v9 retraining stage itself used weighted cross-entropy.
+Temperature scaling searched $T \in \{0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0\}$.
+Per-class thresholds were searched over \associated{} $\{0.30, 0.35, 0.40, 0.45\}$, \notassociated{} $\{0.45, 0.50, 0.55, 0.60\}$, and \incidental{} $\{0.25, 0.30, 0.35, 0.40\}$, with a minimum associated-recall constraint of 0.45.
+\end{sloppypar}
+
+\subsection{Ablation Study}
+
+Table~\ref{tab:ablation} shows the progression of modeling and data interventions.
+
+\begin{table}[t]
+\centering
+\TableSetup
+\caption{Ablation-style chronology of major model and data changes. The first row is a naive CaseOLAP baseline that labels every evaluation sentence as associated. The remaining rows are historical model milestones spanning the original 176-sample evaluation set, the 300-sample relabel3 set, and the final 300-sample relabel4 set. Because both the model family and the ground truth change across groups, rows should be read as historical milestones rather than a controlled same-set ablation.}
+\label{tab:ablation}
+\begin{tabular}{@{}L{0.46\linewidth}L{0.16\linewidth}cc@{}}
+\toprule
+\textbf{Configuration} & \textbf{Eval set} & \textbf{Acc.\ (\%)} & \textbf{Macro F1 (\%)} \\
+\midrule
+CaseOLAP co-occurrence (all associated)        & 300 / relabel4 & 38.3 & 18.5 \\
+Sentence-only PubMedBERT (focal-loss baseline) & 176 / orig. & 69.3 & 66.7 \\
+\quad + Threshold-searched fusion system        & 176 / orig. & 72.2 & 69.7 \\
+\quad + Calibrated v7 base model                & 300 / relabel3 & 77.7 & 76.9 \\
+\quad + Relabel4 audit + weighted CE retrain     & 300 / relabel4 & 85.3 & 85.9 \\
+\quad + Eval-tuned calibrated single             & 300 / relabel4 & 86.3 & 87.1 \\
+\quad + 6-model vote ensemble                  & 300 / relabel4 & \textbf{85.3} & \textbf{86.1} \\
+\bottomrule
+\end{tabular}
+\TableNote{\emph{Sensitivity analysis.} If thresholds are tuned directly on the evaluation set, the same six-model ensemble reaches 87.3\% accuracy and 88.0\% macro F1.}
+\end{table}
+
+Table~\ref{tab:ablation} uses the best single relabel4 model for the post-audit stage. Figure~\ref{fig:waterfall} plots the same chronology using the uncalibrated cross-seed mean single-model accuracy at that stage (84.4\%), so the final ensemble gain remains visible.
+The historical rise from 76.9\% macro F1 on the relabel3 calibrated v7 model to 86.1\% on the clean relabel4 ensemble should not be read as a controlled same-set gain: the earlier result used a different relabel3 evaluation split, whereas the later result uses the expanded 300-sample relabel4 evaluation set.
+That trajectory mixes label correction, evaluation-set expansion, and later modeling changes.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_ablation_waterfall.pdf}
+\caption{Accuracy progression across historical milestones. The relabel4 retrain stage is plotted as the uncalibrated cross-seed mean single-model accuracy (84.4\%), and the final point is the clean six-model ensemble (85.3\%).}
+\label{fig:waterfall}
+\end{figure}
+
+\subsection{Cross-Seed Stability}
+
+Across six single models (three R-Drop, three vanilla), uncalibrated accuracy was $84.4 \pm 0.7\%$ and macro F1 was $85.2 \pm 0.6\%$.
+Using per-run calibrated thresholds, accuracy was $83.9 \pm 0.7\%$ and macro F1 was $84.8 \pm 0.7\%$, drawn from \texttt{logs/v9\_train\_calibrated\_eval.json}.
+Standard deviation below 1 percentage point indicates modest run-to-run variance.
+
+\subsection{Label Audit Results}
+
+Table~\ref{tab:audit} summarizes training-direction corrections and the total number of evaluation corrections.
+
+\begin{table}[t]
+\centering
+\TableSetup
+\caption{Training-set label corrections by direction in the second audit round. The first audit round on the evaluation set yielded 53 additional corrections. The dominant training-direction change was \incidental\ $\to$ \associated, caused by multi-protein sentence ambiguity.}
+\label{tab:audit}
+\begin{tabular}{@{}L{0.58\linewidth}r@{}}
+\toprule
+\textbf{Correction direction} & \textbf{Count} \\
+\midrule
+\incidental\ $\to$ \associated     & 57 \\
+\associated\ $\to$ \incidental     & 27 \\
+\associated\ $\to$ \notassociated  & 10 \\
+\incidental\ $\to$ \notassociated  & 9  \\
+\notassociated\ $\to$ \incidental  & 4  \\
+\notassociated\ $\to$ \associated  & 2  \\
+\midrule
+Total training corrections         & 109 \\
+Total evaluation corrections (round 1) & 53  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The dominant correction (57 of 109, 52.3\%) was \incidental\ $\to$ \associated. These sentences mentioned multiple proteins; the annotator had labeled based on a non-target protein that was indeed incidental, while the target protein had an association with the disease.
+
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Main Results}
+
+Table~\ref{tab:main} presents per-class results for the best uncalibrated single model and the clean six-model majority vote, together with the uncalibrated cross-seed mean across the six single models.
+
+\begin{table}[t]
+\centering
+\TableSetup
+\caption{Main results on the 300-sentence evaluation set (115 \associated, 79 \notassociated, 106 \incidental) under the clean evaluation protocol.}
+\label{tab:main}
+\begin{tabular}{@{}L{0.18\linewidth}L{0.25\linewidth}cccc@{}}
+\toprule
+\textbf{System} & \textbf{Class / setting} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{Acc.} \\
+\midrule
+Best single    & \associated     & 88.8 & 75.7 & 81.7 & -- \\
+(uncalibrated) & \notassociated  & 89.4 & 96.2 & 92.7 & -- \\
+               & \incidental     & 79.5 & 87.7 & 83.4 & -- \\
+               & \emph{Macro avg} & 85.9 & 86.5 & 85.9 & 85.3 \\
+\midrule
+6-model      & \associated     & 85.2 & 80.0 & 82.5 & -- \\
+majority     & \notassociated  & 91.6 & 96.2 & 93.8 & -- \\
+vote         & \incidental     & 80.7 & 83.0 & 81.9 & -- \\
+             & \emph{Macro avg} & 85.8 & 86.4 & 86.1 & 85.3 \\
+\midrule
+Cross-seed mean & Uncalibrated single models & -- & -- & 85.2 & 84.4 \\
+\bottomrule
+\end{tabular}
+\TableNote{\emph{Sensitivity analysis.} Thresholds tuned directly on the evaluation set raise the best single model to 86.3\% accuracy and 87.1\% macro F1 and the six-model ensemble to 87.3\% accuracy and 88.0\% macro F1.}
+\end{table}
+
+The \notassociated\ class reaches the highest F1 (93.8\%) because explicit negative statements use phrases such as ``did not differ'' and ``did not correlate.'' Most residual error stays on the associated/incidental boundary, where majority-vote F1 is 82.5 for \associated\ and 81.9 for \incidental.
+
+Figure~\ref{fig:confusion} shows confusion matrices before and after label correction. The primary change is in the associated/incidental cells: label correction reduces the earlier associated-class under-prediction, but the residual errors still cluster at that boundary rather than in the \notassociated\ class.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_confusion_matrices.pdf}
+\caption{Confusion matrices before and after label correction. Left: v7 single model with best constrained thresholds on the relabel3 300-sentence evaluation set, drawn from \texttt{hfpef\_v7\_large\_base\_calibration\_20260224.json}. Right: v9 six-model majority vote on the relabel4 300-sentence evaluation set, drawn from \texttt{v9\_publication\_eval.json}. Color intensity is row-normalized. The associated/incidental cells show the largest shift.}
+\label{fig:confusion}
+\end{figure}
+
+\subsection{Error Analysis}
+
+The clean majority-vote ensemble makes 44 errors on the 300-sentence evaluation set. Eighteen errors are \associated\ $\to$ \incidental\ (40.9\%), 16 are \incidental\ $\to$ \associated\ (36.4\%), 5 are \associated\ $\to$ \notassociated\ (11.4\%), 3 are \notassociated\ $\to$ \incidental\ (6.8\%), and 2 are \incidental\ $\to$ \notassociated\ (4.5\%). In total, 34 of 44 errors (77.3\%) lie on the associated/incidental boundary.
+
+The remaining errors fall into three patterns. First, when a sentence compresses a biomarker finding into short clinical prose, the model often backs off to incidental, as in ``The severity of cardiac fibrosis evaluated by CMRI also correlated with CTGF.'' Second, when a sentence contains a protein mention and a positive relation word but stops short of a protein--disease claim, the model overcalls association, as in ``Notably, poor nutritional status was significantly associated with GDF15.'' Third, mixed statements that combine null and positive comparisons in one sentence remain hard: ``In men, adjusted similarly as leptin, there was no difference between HFpEF and HFrEF, p=0.310 but, compared to controls, higher levels in HFpEF (p=0.044) and HFrEF (p=0.001)'' was predicted as \notassociated\ even though the gold label is \associated.
+
+\subsection{Impact on CaseOLAP Protein Rankings}
+
+Applying the classifier downstream of CaseOLAP changes protein rankings because proteins supported mainly by incidental or explicitly negative sentences lose evidence mass. This shifts the downstream ranking away from raw co-occurrence frequency and toward sentences that state an actual protein--disease relationship. The sentence-level benchmark in this paper establishes that filtering step; the exact protein-level ordering remains a downstream analysis tied to the specific CaseOLAP export and identifier normalization.
+
+\subsection{Exploratory Transfer Evaluation}
+
+We evaluated on two external datasets after task-specific label mapping, but we treat these results as exploratory transfer evaluation rather than direct benchmarks against the HFpEF task (Table~\ref{tab:external}).
+
+\begin{table}[t]
+\centering
+\TableSetup
+\caption{Exploratory transfer evaluation after task-specific label mapping.}
+\label{tab:external}
+\begin{tabular}{@{}L{0.15\linewidth}cL{0.47\linewidth}@{}}
+\toprule
+\textbf{Dataset} & \textbf{Acc.\ (\%)} & \textbf{Caveat} \\
+\midrule
+EU-ADR  & 82.9 & 2,891 relations; labels were mapped to a binary associated/incidental scheme by collapsing \notassociated\ into \associated. \\
+BioRED  & 94.0 & Random 200-relation gene-disease subsample evaluated through the end-to-end extraction pipeline rather than the standalone classifier; only 11 gold \notassociated\ cases. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+EU-ADR reached 82.9\% accuracy after the binary remapping above, but that task definition is easier than our three-way setting and is not directly comparable.
+BioRED reached 94.0\% accuracy on the 200-relation subsample, yet 189 of those 200 examples were positive under the remapped task and the pipeline recovered none of the 11 negative cases.
+These results are useful as transfer checks, not as head-to-head external benchmarks.
+
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Label Correction in the Development Chronology}
+
+The largest historical jump in our development was the move from the relabel3 calibrated v7 model at 76.9\% macro F1 to the relabel4 retrain at 85.9\% macro F1 single-model. That transition mixes three changes: targeted label correction on examples flagged by ensemble disagreement, an evaluation-set expansion from 176 to 300 sentences, and a relabeling pass that introduced the target-protein column described in Section~\ref{sec:audit}. We present this as a chronology rather than a controlled ablation; a same-set test that holds the gold standard fixed before and after correction would be needed to claim a causal effect.
+
+Within the final relabel4 setting, threshold tuning and ensembling add small absolute gains. The audited weighted-cross-entropy retrain reaches 85.9\% macro F1 as a single model, and the clean six-model vote reaches 86.1\%. The ensemble adds 0.2 macro-F1 points over the best uncalibrated single model. We do not interpret these as more or less effective than the earlier audit; the audit and these later changes were applied at different stages of the project, on different evaluation sets and label sets, so they are not directly comparable.
+
+Prior work has established that label noise harms classifiers \citep{northcutt2021confident,song2022learning}. In our case, the largest single source of corrected labels was an annotation-interface flaw on multi-protein sentences described in Section~\ref{sec:audit}; whether that flaw is the dominant source of label noise on this corpus, rather than one of several, is not something we can claim from this single audit.
+
+\subsection{Multi-Protein Sentences as an Error Source}
+
+Biomedical sentences frequently mention multiple proteins.
+An annotator asked to ``classify the protein--disease relationship in this sentence'' needs to know which protein the question refers to. Our initial annotation spreadsheet omitted this, and 57 of 109 training corrections affected sentences with this multi-protein structure. Adding a target protein column to the spreadsheet reduced this ambiguity in subsequent rounds, although we did not run a controlled comparison that varies only the spreadsheet design.
+
+Even with the target protein specified, the associated/incidental boundary remains partly subjective. A sentence such as ``galectin-3 was measured at baseline'' does not state a protein--disease relationship, but some annotators may still treat repeated biomarker inclusion as weak association evidence. Our labels therefore encode one expert's interpretive standard. Multiple independent annotators are needed to measure how often reasonable readers would disagree on these boundary cases.
+
+\subsection{Ensemble Disagreement as Audit Signal}
+
+The six-model vote disagreed with the current label on 88 of 300 evaluation examples (29.3\%). Domain-expert review corrected 53 of those labels (60.2\%).
+The method requires no probability calibration and works with any model set. It favors precision over recall: it concentrates review on cases where the ensemble leans away from the current label, so some mislabeled low-margin cases remain unreviewed. Confident learning \citep{northcutt2021confident} has higher recall but requires calibrated out-of-fold probabilities.
+
+\subsection{Limitations}
+
+\begin{enumerate}
+  \item We report evaluation-set-tuned thresholds only as sensitivity analysis. Those numbers are optimistic because the evaluation set influenced the thresholds; the clean headline results use uncalibrated majority vote on the untouched evaluation set.
+  \item Label corrections changed the evaluation set between the pre-correction and post-correction comparisons. The ablation table compares performance on different ground truth, which limits direct interpretability.
+  \item A single domain expert reviewed all labels. We did not measure inter-annotator agreement (Cohen's $\kappa$), so we cannot quantify annotation subjectivity. The main ambiguity lies at the associated/incidental boundary: one expert may treat ``galectin-3 was measured at baseline'' as incidental because the sentence makes no explicit claim, while another may treat repeated biomarker inclusion as weak association evidence. Multiple independent annotators on a stratified subset would let us estimate how often this boundary changes the corrected labels and downstream metrics.
+  \item The 1,102-example training set limits generalization. In the BioRED transfer check, \notassociated\ recall was 0\% on the 11 negative examples in the 200-relation subsample.
+  \item Bootstrap percentile intervals on the 300-sample evaluation set are still fairly wide: the clean majority-vote estimate has a 95\% confidence interval of 81.0--89.3\% for accuracy and 82.1--89.7\% for macro F1.
+  \item The only sentence-level baseline reported on the relabel4 evaluation set is the CaseOLAP all-associated strawman (38.3\% accuracy). We did not report a TF-IDF logistic-regression baseline, a lexical-rule classifier, or a calibrated zero-shot LLM baseline on the same split.
+\end{enumerate}
+
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We built a sentence-level classifier for protein--disease association in HFpEF literature that reaches 85.3\% accuracy and 86.1\% macro F1 with a six-model PubMedBERT majority-vote ensemble.
+In our development chronology, the largest jump coincided with auditing labels and clarifying the target protein in multi-protein sentences. That stage also expanded the evaluation set and relabeled examples, so we report it as a chronology rather than as a controlled architecture comparison.
+For small expert-labeled biomedical datasets, our experience suggests treating annotation interfaces and label quality as first-order engineering work, alongside model and threshold tuning.
+
+\section*{Acknowledgments}
+
+This work was conducted in the Division of Cardiovascular Medicine, Department of Internal Medicine, University of California, Davis. Computational resources were provided by Amazon Web Services.
+
+\section*{Data Availability}
+
+The corrected training and evaluation datasets, trained model checkpoints, and evaluation scripts are available upon request pending institutional review. Within the project repository, the relabel4 training set is at \texttt{data/hfpef\_v9\_train\_autocorrect109.json}, the 300-sentence evaluation set is at \texttt{data/splits/hfpef\_v8\_eval\_relabel4\_noleak\_large.json}, the publication-eval results are at \texttt{logs/v9\_publication\_eval.json}, and the calibrated cross-seed results are at \texttt{logs/v9\_train\_calibrated\_eval.json}. Protein synonyms used in the CaseOLAP retrieval query were drawn from UniProt human entries via the CaseOLAP pipeline; the exact synonym table is available with the supplementary material.
+
+\begingroup
+\setlength{\bibsep}{4pt plus 2pt minus 1pt}
+\renewcommand{\bibfont}{\normalsize}
+\bibliography{refs}
+\endgroup
+
+\end{document}
